@@ -33,6 +33,7 @@ class Ur5eGraspController(object):
         rospy.sleep(1.0)  # wait for the TF to be broadcasted
     
     def run(self):
+        time.sleep(10.0)
         vis.clear()
         vis.draw_workspace(self.size)
         # move to initial position
