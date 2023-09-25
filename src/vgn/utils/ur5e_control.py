@@ -38,7 +38,12 @@ class Ur5eCommander(object):
         self.move_group.set_max_acceleration_scaling_factor(acceleration_scaling)
         self.move_group.set_pose_target(pose_msg)
         plan = self.move_group.plan()[1]
-        success = self.move_group.execute(plan, wait=True)
-        self.move_group.stop()
+
+        user_input = input("EXECUTE PLAN [y/n] : ")
+        if user_input == "y":
+            success = self.move_group.execute(plan, wait=True)
+        else:
+            print("ABORTED PLAN")
+            
         self.move_group.clear_pose_targets()
         return success
