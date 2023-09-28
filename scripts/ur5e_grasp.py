@@ -26,7 +26,9 @@ class Ur5eGraspController(object):
         self.finger_depth = rospy.get_param("/ur5e_grasp/finger_depth")
         self.base_frame_id = rospy.get_param("/ur5e_grasp/base_frame_id")
         self.scan_joints = rospy.get_param("/ur5e_grasp/scan_joints")
-
+        self.T_tool0_tcp = Transform.from_dict(rospy.get_param("/ur5e_grasp/T_tool0_tcp"))
+        self.T_tcp_tool0 = self.T_tool0_tcp.inverse()
+        
         self.tf_tree = ros_utils.TransformTree()
         self.tsdf_server = TSDFServer()
         self.ur5e_commander = Ur5eCommander()
@@ -107,18 +109,20 @@ class Ur5eGraspController(object):
         grasp, score = grasps[idx], scores[idx]
 
         # make sure camera is pointing forward
-        # rot = grasp.pose.rotation
-        # axis = rot.as_matrix()[:, 0]
-        # if axis[0] < 0:
-        #     grasp.pose.rotation = rot * Rotation.from_euler("z", np.pi)
+        rot = grasp.pose.rotation
+        axis = rot.as_matrix()[:, 0]
+        if axis[0] < 0:
+            rospy.loginfo("FLIPED GRASP")
+            grasp.pose.rotation = rot * Rotation.from_euler("z", np.pi)
 
         return grasp, score
     
     def execute_grasp(self, grasp):
         T_task_grasp = grasp.pose
         T_base_grasp = self.T_base_task * T_task_grasp
+        
 
-        self.ur5e_commander.goto_pose(T_base_grasp)
+        self.ur5e_commander.goto_pose(T_base_grasp * self.T_tcp_tool0)
 
 
 class TSDFServer(object):

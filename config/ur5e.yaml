@@ -1,7 +1,7 @@
 ur5e_grasp:
   base_frame_id: base_link
   tool0_frame_id: wrist_3_link
-  # T_tool0_tcp: {rotation: [0.000, 0.000, -0.382, 0.924], translation: [0.000, 0.000, 0.065]}
+  T_tool0_tcp: {rotation: [0.000, 0.000, 0.707, 0.707], translation: [0.000, 0.000, 0.0]}
   # finger_depth: 0.05
   # max_opening_width: 0.08
   size: 0.3

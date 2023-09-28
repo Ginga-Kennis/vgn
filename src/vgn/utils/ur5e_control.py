@@ -28,6 +28,7 @@ class Ur5eCommander(object):
             success = self.move_group.execute(plan, wait=True)
         else:
             print("ABORTED PLAN")
+            success = False
 
         self.move_group.stop()
         return success
@@ -44,6 +45,7 @@ class Ur5eCommander(object):
             success = self.move_group.execute(plan, wait=True)
         else:
             print("ABORTED PLAN")
+            success = False
             
         self.move_group.clear_pose_targets()
         return success
