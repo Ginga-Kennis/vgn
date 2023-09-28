@@ -15,7 +15,7 @@ class Ur5eCommander(object):
         self.move_group = moveit_commander.MoveGroupCommander(self.name)
 
     def goto_home(self):
-        self.goto_joints([1.5708,-1.5708,0,-1.5708,0,0])
+        self.goto_joints([1.5708,-1.5708,-1.0472,-2.0944,1.5708,0])
 
     def goto_joints(self,joints,velocity_scaling=0.1,acceleration_scaling=0.1):
         self.move_group.set_max_velocity_scaling_factor(velocity_scaling)

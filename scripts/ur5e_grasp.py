@@ -16,6 +16,7 @@ from vgn.utils import ros_utils
 from vgn.utils.transform import Rotation, Transform
 from vgn.perception import *
 from vgn.utils.ur5e_control import Ur5eCommander
+from vgn.utils.gripper_control import GripperController
 
 # tag lies on the table in the center of the workspace
 T_base_tag = Transform(Rotation.identity(), [0.1, 0.5, 0.1]) # identity transformation
@@ -28,10 +29,11 @@ class Ur5eGraspController(object):
         self.scan_joints = rospy.get_param("/ur5e_grasp/scan_joints")
         self.T_tool0_tcp = Transform.from_dict(rospy.get_param("/ur5e_grasp/T_tool0_tcp"))
         self.T_tcp_tool0 = self.T_tool0_tcp.inverse()
-        
+
         self.tf_tree = ros_utils.TransformTree()
         self.tsdf_server = TSDFServer()
         self.ur5e_commander = Ur5eCommander()
+        # self.gripper_controller = GripperController()
         self.plan_grasps = VGN(args.model, rviz=True)
 
         self.define_workspace()
@@ -82,7 +84,7 @@ class Ur5eGraspController(object):
         vis.draw_grasp(grasp, score, self.finger_depth)
         rospy.loginfo("Selected grasp")
 
-        # self.ur5e_commander.goto_home()
+        self.ur5e_commander.goto_home()
         label = self.execute_grasp(grasp)
         rospy.loginfo("Grasp execution")
     
