@@ -4,7 +4,6 @@ from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as ou
 
 class GripperController(object):
     def __init__(self):
-        rospy.init_node('Robotiq2FGripperSimpleController')
         self.pub = rospy.Publisher('Robotiq2FGripperRobotOutput', outputMsg.Robotiq2FGripper_robot_output,queue_size=10)
 
         self.activate_gripper()
@@ -32,5 +31,5 @@ class GripperController(object):
 
 if __name__ == "__main__":
     grippercontroller = GripperController()
-    grippercontroller.gripper_control(80)
+    grippercontroller.gripper_control(130)
     

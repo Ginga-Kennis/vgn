@@ -27,13 +27,14 @@ class Ur5eGraspController(object):
         self.finger_depth = rospy.get_param("/ur5e_grasp/finger_depth")
         self.base_frame_id = rospy.get_param("/ur5e_grasp/base_frame_id")
         self.scan_joints = rospy.get_param("/ur5e_grasp/scan_joints")
+        self.place_joints = rospy.get_param("/ur5e_grasp/place_joints")
         self.T_tool0_tcp = Transform.from_dict(rospy.get_param("/ur5e_grasp/T_tool0_tcp"))
         self.T_tcp_tool0 = self.T_tool0_tcp.inverse()
 
         self.tf_tree = ros_utils.TransformTree()
         self.tsdf_server = TSDFServer()
         self.ur5e_commander = Ur5eCommander()
-        # self.gripper_controller = GripperController()
+        self.gripper_controller = GripperController()
         self.plan_grasps = VGN(args.model, rviz=True)
 
         self.define_workspace()
@@ -87,6 +88,11 @@ class Ur5eGraspController(object):
         self.ur5e_commander.goto_home()
         label = self.execute_grasp(grasp)
         rospy.loginfo("Grasp execution")
+
+        # PLACE OBJECT
+        self.ur5e_commander.goto_joints(self.place_joints[0])
+        self.gripper_controller.gripper_control(130)
+
     
     def acquire_tsdf(self):
         self.ur5e_commander.goto_joints(self.scan_joints[0])
@@ -123,8 +129,9 @@ class Ur5eGraspController(object):
         T_task_grasp = grasp.pose
         T_base_grasp = self.T_base_task * T_task_grasp
         
-
+        self.gripper_controller.gripper_control(100)
         self.ur5e_commander.goto_pose(T_base_grasp * self.T_tcp_tool0)
+        self.gripper_controller.gripper_control(0)
 
 
 class TSDFServer(object):
