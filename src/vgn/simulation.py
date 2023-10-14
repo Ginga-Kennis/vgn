@@ -9,6 +9,8 @@ from vgn.perception import *
 from vgn.utils import btsim, workspace_lines
 from vgn.utils.transform import Rotation, Transform
 
+import cv2
+
 
 class ClutterRemovalSim(object):
     def __init__(self, scene, object_set, gui=True, seed=None):
@@ -152,12 +154,17 @@ class ClutterRemovalSim(object):
         extrinsics = [camera_on_sphere(origin, r, theta, phi) for phi in phi_list]
 
         timing = 0.0
+        i = 1
         for extrinsic in extrinsics:
+            image = self.camera.render(extrinsic)[0]
             depth_img = self.camera.render(extrinsic)[1]
+            image_name = f"./image/view{i}.png"
+            cv2.imwrite(image_name,image)
             tic = time.time()
             tsdf.integrate(depth_img, self.camera.intrinsic, extrinsic)
             timing += time.time() - tic
             high_res_tsdf.integrate(depth_img, self.camera.intrinsic, extrinsic)
+            i += 1
 
         return tsdf, high_res_tsdf.get_cloud(), timing
 
