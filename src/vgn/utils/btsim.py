@@ -292,12 +292,17 @@ class Camera(object):
             projectionMatrix=gl_proj_matrix,
             renderer=pybullet.ER_TINY_RENDERER,
         )
+        
 
-        rgb, z_buffer = result[2][:, :, :3], result[3]
+        rgb, z_buffer, seg_mask = result[2][:, :, :3], result[3], result[4]
         depth = (
             1.0 * self.far * self.near / (self.far - (self.far - self.near) * z_buffer)
         )
-        return rgb, depth
+        
+        seg_image = np.where(seg_mask != 0, 255, 0)
+        
+        
+        return rgb, depth, seg_image
 
 
 def _build_projection_matrix(intrinsic, near, far):
