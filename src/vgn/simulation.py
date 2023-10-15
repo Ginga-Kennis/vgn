@@ -156,11 +156,18 @@ class ClutterRemovalSim(object):
         timing = 0.0
         i = 1
         for extrinsic in extrinsics:
+            # get image(rgb, depth, segmented)
             image = self.camera.render(extrinsic)[0]
             depth_img = self.camera.render(extrinsic)[1]
             seg_image = self.camera.render(extrinsic)[2]
+            
+            # save (rgb, segmented) image
             image_name = f"./image/view{i}.png"
-            cv2.imwrite(image_name,seg_image)
+            seg_image_name = f"./seg_image/view{i}.png"
+            cv2.imwrite(image_name,image)
+            cv2.imwrite(seg_image_name,seg_image)
+            
+            # integrete tsdf
             tic = time.time()
             tsdf.integrate(depth_img, self.camera.intrinsic, extrinsic)
             timing += time.time() - tic
