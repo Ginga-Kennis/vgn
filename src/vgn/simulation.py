@@ -28,7 +28,10 @@ class ClutterRemovalSim(object):
         self.world = btsim.BtWorld(self.gui)
         self.gripper = Gripper(self.world)
         self.size = 6 * self.gripper.finger_depth
-        intrinsic = CameraIntrinsic(640, 480, 540.0, 540.0, 320.0, 240.0)
+        # CameraIntrinsic : (width,height,fx,fy,cx,cy)
+        # intrinsic = CameraIntrinsic(640, 480, 540.0, 540.0, 320.0, 240.0)
+        intrinsic = CameraIntrinsic(1280, 720, 891.3, 891.3, 628.9, 362.4)
+        # (intrinsic, near, far)
         self.camera = self.world.add_camera(intrinsic, 0.1, 2.0)
 
     @property
@@ -115,8 +118,8 @@ class ClutterRemovalSim(object):
         while self.num_objects < object_count and attempts < max_attempts:
             self.save_state()
             urdf = self.rng.choice(self.object_urdfs)
-            x = self.rng.uniform(0.08, 0.22)
-            y = self.rng.uniform(0.08, 0.22)
+            x = self.rng.uniform(0.04, 0.26)
+            y = self.rng.uniform(0.04, 0.26)
             z = 1.0
             angle = self.rng.uniform(0.0, 2.0 * np.pi)
             rotation = Rotation.from_rotvec(angle * np.r_[0.0, 0.0, 1.0])
