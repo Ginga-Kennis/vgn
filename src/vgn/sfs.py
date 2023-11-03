@@ -1,97 +1,93 @@
 import numpy as np
-from scipy.spatial.transform import Rotation as R
-import cv2
-import mcubes
 import open3d as o3d
 
 class VoxelSpace:
-    def __init__(self, xlim, ylim, zlim, voxel_size,K):
+    def __init__(self, x_range, y_range, z_range, voxel_size,K,focal_length):
         # number of voxel in each axis
-        self.voxel_number = [np.abs(xlim[1] - xlim[0]) / voxel_size[0], np.abs(ylim[1] - ylim[0]) / voxel_size[1], np.abs(zlim[1] - zlim[0]) / voxel_size[2]]
+        self.voxel_number = [np.abs(x_range[1] - x_range[0]) / voxel_size[0], np.abs(y_range[1] - y_range[0]) / voxel_size[1], np.abs(z_range[1] - z_range[0]) / voxel_size[2]]
         
         # total number of voxels
         self.total_number = np.prod(self.voxel_number).astype(int)
-
+        
         # (total_number, 4)
-        # The first three values are the x-y-z-coordinates of the voxel, the fourth value is the occupancy
+        # The first three values are the x-y-z-coordinates of the voxel, the fourth value is the occupancy(0 or 1)
         self.voxel = np.ones((self.total_number, 4))
+
+        # total number of images projected to each points
+        self.num_projected = np.zeros((self.total_number, 1))
+        
 
         l = 0
         for x in range(int(self.voxel_number[0])):
             for y in range(int(self.voxel_number[1])):
                 for z in range(int(self.voxel_number[2])):
-                    self.voxel[l] = [x * voxel_size[0], y * voxel_size[1], z * voxel_size[2], 1] 
+                    self.voxel[l] = [x * voxel_size[0], y * voxel_size[1], z * voxel_size[2], 0] 
                     l += 1
 
-        self.voxel = self.voxel.T
-
+        
+        self.points3D_world = np.copy(self.voxel).T
+        self.points3D_world[3,:] = 1
+        
         # camera intrinsic
         self.K = K
+        self.f = focal_length
+        
 
     def sfs(self, image, extrinsic):
         height, width, image, silhouette = self.preprocess_image(image)
 
         #perspective projection matrix
-        p_matrix = self.calc_p_matrix(extrinsic)
-        print(p_matrix)
+        p_matrix = self.calc_p_matrix(extrinsic[0:3,:])
+
+        # projection to the image plane (points2D = (u,v,1) * self.total_number)
+        points2D = np.matmul(p_matrix, self.points3D_world)
+        points2D = np.floor(points2D / points2D[2, :]).astype(np.int32)
+
+        # check for points less than focal length
+        points3D_camera = np.matmul(extrinsic,self.points3D_world)
+        ind1 = np.where((points3D_camera[2,:] < self.f))
+
+        # check for (u < 0, width < u) and (v < 0, height < v)
+        ind2 = np.where(((points2D[0, :] < 0) | (points2D[0, :] >= width) | (points2D[1, :] < 0) | (points2D[1, :] >= height))) 
+        points2D[:,ind2] = 0  # just for error handling
+
+        # concat ind1 and ind2
+        ind = np.unique(np.concatenate((ind1[0],ind2[0])))
+
+    
+        # 0 : outside image
+        # 1 : inside image
+        projected = np.ones((self.total_number, 1))
+        projected[ind,0] = 0.0
+
+
+        # 0 : inside silhouette
+        # 1 : outside silhouette
+        # 2 : outside image
+        tmp = silhouette[points2D.T[:,1], points2D.T[:,0]].astype(int)
+        tmp[ind] = 2
 
         
-        # projection to the image plane (points2D = (u,v,1) * 41^3)
-        points2D = np.matmul(p_matrix, self.voxel)
-        print(points2D)
-        points2D = np.floor(points2D / points2D[2, :]).astype(np.int32) # 3行目を1に揃える
-        print(points2D)
-        points2D[np.where(points2D < 0)] = 0  # check for negative image coordinate
+        for i in range(self.total_number):
+            if self.voxel[i,3] == 0.0:
+                # 0 → 1 (only when self.num_projected == 0)
+                if tmp[i] == 1 and self.num_projected[i] == 0:
+                    self.voxel[i,3] = 1.0
+            else:
+                # 1 → 0
+                if tmp[i] == 0:
+                    self.voxel[i,3] = 0.0
 
-        
-        # check for out-of-bounds (height) coordinate
-        # ind1 = np.where(points2D[0, :] >= width) # check for u value bigger than width
-        # points2D[:,ind1] = 0
-        # ind2 = np.where(points2D[1, :] >= height)  # check for v value bigger than width
-        # points2D[:,ind2] = 0
+        self.remove_table()
+            
+        self.num_projected += projected
 
-        x_good = np.logical_and(points2D[0,:] >= 0, points2D[0,:] < width)
-        y_good = np.logical_and(points2D[1,:] >= 0, points2D[1,:] < height)
-        indices = np.where(np.logical_and(x_good,y_good))
+        self.visualize_pcd()
 
-
-
-        # print(np.shape(silhouette))
-        # accumulate the value of each voxel in the current image
-        
-        self.voxel[:,3] += silhouette.T[points2D.T[:,0], points2D.T[:,1]]
-
-        
-        self.voxel3D = np.zeros(self.voxels_number_act)
-        
-        l = 0
-        z1 = 0
-        for z in range(self.voxels_number_act[2]):
-            x1 = 0
-            for x in range(self.voxels_number_act[0]):
-                y1 = 0
-                for y in range(self.voxels_number_act[1]):
-                    self.voxel3D[y1,x1,z1] = self.voxel[l,3]
-                    l += 1
-                    y1 += 1
-                x1 += 1
-            z1 += 1
-
-        print(np.unique(self.voxel3D)) 
-        # print(self.voxel3D)
-
-        error_amount = 5
-        maxv = np.max(self.voxel3D[:, 3])
-        iso_value = maxv-np.round(((maxv)/100)*error_amount)-0.5
-
-        vertices, triangles = mcubes.marching_cubes(self.voxel3D,iso_value)
-        print(vertices,triangles)
-        mcubes.export_mesh(vertices, triangles, "pointcloud.dae","pointcloud")
-
+    def remove_table(self):
+        self.voxel[np.where(self.voxel[:,2] < 0.05)[0],3] = 0
 
     def calc_p_matrix(self,extrinsic):
-        print(self.K)
-        print(extrinsic)
         return np.matmul(self.K,extrinsic)
     
     def preprocess_image(self,image):
@@ -99,64 +95,26 @@ class VoxelSpace:
         image[np.where(image != 0)] = 1
         silhouette = image > 0
         return height, width, image, silhouette
-
-def preprocess_image(image):
-        height, width = np.shape(image)
-        image[np.where(image != 0)] = 1
-        silhouette = image > 0
-        return height, width, image, silhouette
-
-
-if __name__ == "__main__":
-    xlim = [0,0.3]
-    ylim = [0,0.3]
-    zlim = [0,0.3]
-    voxel_size = [0.0075,0.0075,0.0075]
-    K = np.array([[891.318115234375, 0.0, 628.9073486328125],
-                  [0.0, 891.318115234375, 362.3601989746094],
-                  [0.0, 0.0, 1.0]], dtype=np.float32)
     
-    voxel = VoxelSpace(xlim,ylim,zlim,voxel_size,K)
-    
-    # image = cv2.imread("seg_image/view1.png",0)
-    # extrinsic = np.array([[0.0, 1.0, 0.0, -0.15], 
-    #                       [0.8660254, 0.0, -0.5, -0.12990381], 
-    #                       [-0.5, 0.0, -0.8660254, 0.675]], dtype=np.float32)
-    
-    # voxel.sfs(image,extrinsic)
+    def visualize_pcd(self):
+        # extract pointcloud(occupancy == 1) from voxel
+        ind = np.where(self.voxel[:,3] == 1.0)
+        self.pcd = self.voxel[ind[0],0:3]
+        print(np.shape(self.pcd))
 
-    image = cv2.imread("seg_image/view2.png",0)
-    extrinsic = np.array([[-8.66025404e-01, 5.00000000e-01, -1.38777878e-17, 5.49038106e-02],
-                          [4.33012702e-01, 7.50000000e-01, -5.00000000e-01, -1.77451905e-01],
-                          [-2.50000000e-01, -4.33012702e-01, -8.66025404e-01, 7.02451905e-01]], dtype=np.float32)
-    
-    voxel.sfs(image,extrinsic)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(self.pcd)
+        
 
-    image = cv2.imread("seg_image/view3.png",0)
-    extrinsic = np.array([[-8.66025404e-01, -5.00000000e-01, -1.38777878e-17,  2.04903811e-01],
-                          [-4.33012702e-01,  7.50000000e-01, -5.00000000e-01, -4.75480947e-02],
-                          [ 2.50000000e-01, -4.33012702e-01, -8.66025404e-01,  6.27451905e-01]], dtype=np.float32)
-    
-    voxel.sfs(image,extrinsic)
+        # visualize
+        viewer = o3d.visualization.Visualizer()
+        viewer.create_window()
+        viewer.add_geometry(pcd)
+        opt = viewer.get_render_option()
+        opt.show_coordinate_frame = True
+        viewer.run()
+        viewer.destroy_window()
 
-    image = cv2.imread("seg_image/view4.png",0)
-    extrinsic = np.array([[-1.11022302e-16, -1.00000000e+00, -5.55111512e-17, 1.50000000e-01],
-                          [-8.66025404e-01, 1.11022302e-16, -5.00000000e-01, 1.29903811e-01],
-                          [5.00000000e-01, -5.55111512e-17, -8.66025404e-01, 5.25000000e-01]], dtype=np.float32)
-    
-    voxel.sfs(image,extrinsic)
-
-    image = cv2.imread("seg_image/view5.png",0)
-    extrinsic = np.array([[8.66025404e-01, -5.00000000e-01, -2.77555756e-17, -5.49038106e-02],
-                          [-4.33012702e-01, -7.50000000e-01, -5.00000000e-01, 1.77451905e-01],
-                          [2.50000000e-01, 4.33012702e-01, -8.66025404e-01, 4.97548095e-01]], dtype=np.float32)
-    
-    voxel.sfs(image,extrinsic)
-
-    image = cv2.imread("seg_image/view6.png",0)
-    extrinsic = np.array([[8.66025404e-01, 5.00000000e-01, 1.38777878e-17, -2.04903811e-01],
-                          [4.33012702e-01, -7.50000000e-01, -5.00000000e-01, 4.75480947e-02],
-                          [-2.50000000e-01, 4.33012702e-01, -8.66025404e-01, 5.72548095e-01]], dtype=np.float32)
-    
-    voxel.sfs(image,extrinsic)
+        # save pointcloud(.ply)
+        o3d.io.write_point_cloud("pointcloud.ply", pcd)
 

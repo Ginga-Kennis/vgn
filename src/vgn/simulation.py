@@ -159,7 +159,6 @@ class ClutterRemovalSim(object):
         timing = 0.0
         i = 1
         for extrinsic in extrinsics:
-            # get image(rgb, depth, segmented)
             image = self.camera.render(extrinsic)[0]
             depth_img = self.camera.render(extrinsic)[1]
             seg_image = self.camera.render(extrinsic)[2]
@@ -255,6 +254,18 @@ class ClutterRemovalSim(object):
         contacts = self.world.get_contacts(gripper.body)
         res = len(contacts) > 0 and gripper.read() > 0.1 * gripper.max_opening_width
         return res
+    
+    def render(self,extrinsic, image_number):
+        image = self.camera.render(extrinsic)[0]
+        seg_image = self.camera.render(extrinsic)[2]
+        
+        # save (rgb, segmented) image
+        image_name = f"./image/image{image_number}.png"
+        seg_image_name = f"./seg_image/image{image_number}.png"
+        cv2.imwrite(image_name,image)
+        cv2.imwrite(seg_image_name,seg_image)
+        # return image, seg_image
+        
 
 
 class Gripper(object):
