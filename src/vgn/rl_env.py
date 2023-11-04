@@ -1,5 +1,6 @@
 import collections
 import numpy as np
+import cv2
 from pathlib import Path
 
 from vgn.detection import VGN
@@ -7,6 +8,8 @@ from vgn.grasp import *
 from vgn.simulation import ClutterRemovalSim
 from vgn.utils.transform import Rotation, Transform
 from vgn.sfs import VoxelSpace
+
+
 
 MAX_CONSECUTIVE_FAILURES = 2
 
@@ -19,7 +22,7 @@ def get_distance(curr_pose,goal_pose):
           
 class Env:
     def __init__(self):
-        self.sim = ClutterRemovalSim(scene="packed", object_set="packed/train", gui=True)
+        self.sim = ClutterRemovalSim(scene="packed", object_set="packed/test", gui=True)
         self.VGN = VGN(model_path=Path("data/models/vgn_conv.pth"),rviz=False)
         
         # max steps per scene(オブジェクトの数で変わる？)
@@ -44,6 +47,11 @@ class Env:
         self.truncated = False
         
         state = [self.curr_pose,self.goal_pose]
+        
+        # image = self.sim.camera2.get_image([0.6830127, 0.6830127, -0.1830127, -0.1830127],[0.45, 0.15, 0.52])
+        image = self.sim.camera2.get_image([ -0.7071068, 0, 0, 0.7071068 ],[0.15, -0.15, 0.15])
+        image_name = f"./image/new_cam_image.png"
+        cv2.imwrite(image_name,image)
         return state
         
     def get_goalpose(self):

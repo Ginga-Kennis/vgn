@@ -1,11 +1,13 @@
 import time
-
+import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 import pybullet
 from pybullet_utils import bullet_client
 
 
 from vgn.utils.transform import Rotation, Transform
+from pyquaternion import Quaternion
 
 assert pybullet.isNumpyEnabled(), "Pybullet needs to be built with NumPy"
 
@@ -49,6 +51,10 @@ class BtWorld(object):
     def add_camera(self, intrinsic, near, far):
         camera = Camera(self.p, intrinsic, near, far)
         return camera
+    
+    def add_camera2(self, fx, fy, cx, cy, width, height, near, far):
+        camera2 = Camera2(self.p, fx, fy, cx, cy, width, height, near, far)
+        return camera2
 
     def get_contacts(self, bodyA):
         points = self.p.getContactPoints(bodyA.uid)
@@ -326,3 +332,76 @@ def _gl_ortho(left, right, bottom, top, near, far):
     ortho[1, 3] = -(top + bottom) / (top - bottom)
     ortho[2, 3] = -(far + near) / (far - near)
     return ortho
+
+
+class Camera2(object):
+    def __init__(self, physics_client, fx, fy, cx, cy, width, height, near, far):
+        self.p = physics_client
+        self.fx = fx
+        self.fy = fy
+        self.cx = cx
+        self.cy = cy
+        self.width = width
+        self.height = height
+        self.near = near
+        self.far = far
+        
+    def cvK2BulletP(self):
+        """
+        cvKtoPulletP converst the K interinsic matrix as calibrated using Opencv
+        and ROS to the projection matrix used in openGL and Pybullet.
+    
+        :param K:  OpenCV 3x3 camera intrinsic matrix
+        :param w:  Image width
+        :param h:  Image height
+        :near:     The nearest objects to be included in the render
+        :far:      The furthest objects to be included in the render
+        :return:   4x4 projection matrix as used in openGL and pybullet
+        """ 
+        A = (self.near + self.far)/(self.near - self.far)
+        B = 2 * self.near * self.far / (self.near - self.far)
+    
+        projection_matrix = [
+                            [2/self.width * self.fx,  0,          (self.width - 2*self.cx)/self.width,  0],
+                            [0,          2/self.height * self.fy,  (2*self.cy - self.height)/self.height,  0],
+                            [0,          0,          A,              B],
+                            [0,          0,          -1,             0]]
+        #The transpose is needed for respecting the array structure of the OpenGL
+        return np.array(projection_matrix).T.reshape(16).tolist()
+    
+    
+    def cvPose2BulletView(self,q, t):
+        """
+        cvPose2BulletView gets orientation and position as used 
+        in ROS-TF and opencv and coverts it to the view matrix used 
+        in openGL and pyBullet.
+        
+        :param q: ROS orientation expressed as quaternion [qx, qy, qz, qw] 
+        :param t: ROS postion expressed as [tx, ty, tz]
+        :return:  4x4 view matrix as used in pybullet and openGL
+        
+        """
+        q = Quaternion([q[3], q[0], q[1], q[2]])
+        R = q.rotation_matrix
+    
+        T = np.vstack([np.hstack([R, np.array(t).reshape(3,1)]),
+                                  np.array([0, 0, 0, 1])])
+        # Convert opencv convention to python convention
+        # By a 180 degrees rotation along X
+        Tc = np.array([[1,   0,    0,  0],
+                       [0,  -1,    0,  0],
+                       [0,   0,   -1,  0],
+                       [0,   0,    0,  1]]).reshape(4,4)
+        
+        # pybullet pse is the inverse of the pose from the ROS-TF
+        T=Tc@np.linalg.inv(T)
+        # The transpose is needed for respecting the array structure of the OpenGL
+        viewMatrix = T.T.reshape(16)
+        return viewMatrix
+    
+    def get_image(self,q,t):
+        projectionMatrix = self.cvK2BulletP()
+        viewMatrix = self.cvPose2BulletView(q, t)
+
+        _, _, rgb, depth, segmentation = self.p.getCameraImage(self.width, self.height, viewMatrix, projectionMatrix, shadow = False)
+        return rgb

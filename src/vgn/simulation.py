@@ -29,10 +29,11 @@ class ClutterRemovalSim(object):
         self.gripper = Gripper(self.world)
         self.size = 6 * self.gripper.finger_depth
         # CameraIntrinsic : (width,height,fx,fy,cx,cy)
-        # intrinsic = CameraIntrinsic(640, 480, 540.0, 540.0, 320.0, 240.0)
-        intrinsic = CameraIntrinsic(1280, 720, 891.3, 891.3, 628.9, 362.4)
+        intrinsic = CameraIntrinsic(640, 480, 540.0, 540.0, 320.0, 240.0)
+        # intrinsic = CameraIntrinsic(1280, 720, 891.3, 891.3, 628.9, 362.4)
         # (intrinsic, near, far)
         self.camera = self.world.add_camera(intrinsic, 0.1, 2.0)
+        self.camera2 = self.world.add_camera2(540,540,320,320,640,480,0.1,3.0)
 
     @property
     def num_objects(self):
