@@ -28,12 +28,11 @@ class ClutterRemovalSim(object):
         self.world = btsim.BtWorld(self.gui)
         self.gripper = Gripper(self.world)
         self.size = 6 * self.gripper.finger_depth
-        # CameraIntrinsic : (width,height,fx,fy,cx,cy)
         intrinsic = CameraIntrinsic(640, 480, 540.0, 540.0, 320.0, 240.0)
-        # intrinsic = CameraIntrinsic(1280, 720, 891.3, 891.3, 628.9, 362.4)
-        # (intrinsic, near, far)
         self.camera = self.world.add_camera(intrinsic, 0.1, 2.0)
-        self.camera2 = self.world.add_camera2(540,540,320,320,640,480,0.1,3.0)
+        
+        # (fx, fy, cx,cy, width, height, near, far)
+        self.camera2 = self.world.add_camera2(540,540,320,240,640,480,0.05,3.0)
 
     @property
     def num_objects(self):
@@ -160,16 +159,7 @@ class ClutterRemovalSim(object):
         timing = 0.0
         i = 1
         for extrinsic in extrinsics:
-            image = self.camera.render(extrinsic)[0]
             depth_img = self.camera.render(extrinsic)[1]
-            seg_image = self.camera.render(extrinsic)[2]
-            
-            # save (rgb, segmented) image
-            image_name = f"./image/view{i}.png"
-            seg_image_name = f"./seg_image/view{i}.png"
-            cv2.imwrite(image_name,image)
-            cv2.imwrite(seg_image_name,seg_image)
-            
             # integrete tsdf
             tic = time.time()
             tsdf.integrate(depth_img, self.camera.intrinsic, extrinsic)

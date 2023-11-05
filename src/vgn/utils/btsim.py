@@ -346,6 +346,8 @@ class Camera2(object):
         self.near = near
         self.far = far
         
+        self.projectionMatrix = self.cvK2BulletP()
+        
     def cvK2BulletP(self):
         """
         cvKtoPulletP converst the K interinsic matrix as calibrated using Opencv
@@ -400,8 +402,12 @@ class Camera2(object):
         return viewMatrix
     
     def get_image(self,q,t):
-        projectionMatrix = self.cvK2BulletP()
         viewMatrix = self.cvPose2BulletView(q, t)
 
-        _, _, rgb, depth, segmentation = self.p.getCameraImage(self.width, self.height, viewMatrix, projectionMatrix, shadow = False)
-        return rgb
+        _, _, rgb, depth, segmentation = self.p.getCameraImage(self.width, self.height, viewMatrix, self.projectionMatrix, shadow = False)
+        
+        rgb_image = rgb[:,:,:3]
+        depth_image = 1.0 * self.far * self.near / (self.far - (self.far - self.near) * depth)
+        seg_image = np.where(segmentation != 0, 255, 0)
+        
+        return rgb_image, depth_image, seg_image

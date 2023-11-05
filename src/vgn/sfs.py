@@ -37,6 +37,7 @@ class VoxelSpace:
         height, width, image, silhouette = self.preprocess_image(image)
 
         #perspective projection matrix
+        extrinsic = np.linalg.inv(extrinsic) 
         p_matrix = self.calc_p_matrix(extrinsic[0:3,:])
 
         # projection to the image plane (points2D = (u,v,1) * self.total_number)
@@ -100,7 +101,6 @@ class VoxelSpace:
         # extract pointcloud(occupancy == 1) from voxel
         ind = np.where(self.voxel[:,3] == 1.0)
         self.pcd = self.voxel[ind[0],0:3]
-        print(np.shape(self.pcd))
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(self.pcd)
