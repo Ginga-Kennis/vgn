@@ -127,4 +127,8 @@ class VoxelSpace:
     @property
     def num_points(self):
         return np.shape(np.where(self.voxel[:,3] == 1.0))[1]
+    
+    @property
+    def voxel_space(self):
+        return self.voxel
 
