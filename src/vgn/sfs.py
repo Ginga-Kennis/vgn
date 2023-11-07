@@ -83,7 +83,12 @@ class VoxelSpace:
             
         self.num_projected += projected
 
-        self.visualize_pcd()
+        # self.visualize_pcd()
+
+    def reset(self):
+        self.voxel[3,:] = 0
+        self.num_projected = np.zeros((self.total_number, 1))
+
 
     def remove_table(self):
         self.voxel[np.where(self.voxel[:,2] < 0.05)[0],3] = 0
@@ -117,4 +122,9 @@ class VoxelSpace:
 
         # save pointcloud(.ply)
         o3d.io.write_point_cloud("pointcloud.ply", pcd)
+
+
+    @property
+    def num_points(self):
+        return np.shape(np.where(self.voxel[:,3] == 1.0))[1]
 
