@@ -3,6 +3,9 @@ import numpy as np
 import cv2
 import math
 import open3d as o3d
+import gymnasium as gym
+from gymnasium import spaces
+from stable_baselines3.common.env_checker import check_env
 from pathlib import Path
 from scipy.spatial.transform import Rotation as R
 from pyquaternion import Quaternion
@@ -118,7 +121,7 @@ def check_collision(pointcloud,num_points,pose,r):
 State = collections.namedtuple("State", ["tsdf", "pc"])
 INITIAL_POSE = [0.968993181842469, 0.0, 0.0, -0.24708746132252002, 0.15, -0.15, 0.6]
 
-class Env:
+class Env(gym.Env):
     def __init__(self):
         # Initialize params
         self.max_steps = 20
@@ -126,19 +129,41 @@ class Env:
         self.r = 0.1   # 半径10cm
     
         # Initialize (Simulation, VoxelSpace,VGN)
-        self.sim = ClutterRemovalSim(scene="packed", object_set="packed/train", gui=True)
-        self.voxel_space = VoxelSpace([0.0,0.3],[0.0,0.3],[0.0,0.3],[0.003,0.003,0.003],np.array([[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]),0.05,0.05)
+        self.sim = ClutterRemovalSim(scene="packed", object_set="packed/train", gui=False)
+        self.voxel_space = VoxelSpace([0.0,0.3],[0.0,0.3],[0.0,0.3],[0.0075,0.0075,0.0075],np.array([[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]),0.05,0.05)
         self.vgn = VGN(model_path=Path("data/models/vgn_conv.pth"),rviz=False)
+
+        self.observation_space = spaces.Dict(
+            {
+                "s3d" : spaces.Box(low=0, high=255,shape=(40,40,40), dtype=np.uint8),
+                "pose" : spaces.Box(low=-2, high=2,shape=(14,),dtype=np.float32)
+            }
+        )
+
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(7,), dtype=np.float32)
+
+
+    def _get_obs(self):
+        pose = np.concatenate((self.curr_pose,self.goal_pose), axis=0)
+        return {"s3d" : self.s3d.astype(np.uint8), "pose" : pose.astype(np.float32)}
+    
+    def _get_curr_pose(self,action):
+        action[:4] *= 0.2     # scale quat
+        action[4:] *= 0.05     # scale trans
+        self.curr_pose = self.curr_pose + action
+        self.curr_pose[:4] /= np.linalg.norm(self.curr_pose[:4])
+    
+    def _get_info(self):
+        return {"distance" : self.curr_distance, "num_points" : self.curr_num_points, "collision" : self.collision}
         
         
-    def reset(self,num_objects):
+    def reset(self,seed=None, options=None):
+        super().reset(seed=seed)
+
         # 1 : Reset (Simulation, VoxelSpace)
-        self.num_objects = num_objects
+        self.num_objects = 3
         self.sim.reset(self.num_objects)
         self.voxel_space.reset()
-
-        # 3 : set curr_pose to Initial pose
-        self.curr_pose = INITIAL_POSE
 
         # 2 : get goal pose
         self.goal_pose = self.get_goalpose()
@@ -146,16 +171,17 @@ class Env:
             print("********* NO GRASP DETECTED *************")
             return False
         else:
-            self.goal_pose = from_matrix(self.goal_pose.as_matrix())
+            self.goal_pose = np.array(from_matrix(self.goal_pose.as_matrix()))
 
+        # 3 : set curr_pose to Initial pose
+        self.curr_pose = np.array(INITIAL_POSE)
 
-        # 3 : initialize num_steps
-        self.num_steps = 0
 
         # 4 : SfS
-        self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
+        self.sfs(self.curr_pose[:4],self.curr_pose[4:],0)
 
-        # 4 : set params
+        # 5 : set params
+        self.num_steps = 0
         self.prev_num_points = 0
         self.curr_num_points = self.voxel_space.num_points
         self.prev_distance = 0
@@ -167,9 +193,11 @@ class Env:
         self.done = False
         self.truncated = False
 
-        state = [self.s3d, self.curr_pose, self.goal_pose]
-
-        return state
+        # 6 : get state & info
+        state = self._get_obs()
+        info = self._get_info()
+        # print(f"RESET : {info}")
+        return state, info
 
         
                   
@@ -177,8 +205,8 @@ class Env:
         # 1 : increment num_steps
         self.num_steps += 1
 
-        # 2 : set current_pose to action
-        self.curr_pose = action
+        # 2 : set current_pose (curr_pose + action)
+        self._get_curr_pose(action)
 
         # 3 : SfS
         self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
@@ -194,45 +222,16 @@ class Env:
         self.goal = self.curr_distance <= self.goal_threshold
         self.done = self.collision or self.goal
         self.truncated = self.num_steps > self.max_steps
+        # visualize_pcd(self.pointcloud)
 
         # 5 : calculate reward
         reward = self.calc_reward()
 
-        state = [self.s3d, self.curr_pose, self.goal_pose]
-
-        return state, reward, self.done, self.truncated
+        state = self._get_obs()
+        info = self._get_info()
+        # print(f"STEP : {info}")
+        return state, reward, self.done, self.truncated, info
     
-
-    # Temporary
-    def last_step(self):
-        # 1 : increment num_steps
-        self.num_steps += 1
-
-        # 2 : set current_pose to action
-        self.curr_pose = self.goal_pose
-
-        # 3 : SfS
-        self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
-
-        # 4 : set parameters
-        self.prev_num_points = self.curr_num_points
-        self.curr_num_points = self.voxel_space.num_points
-        self.prev_distance = self.curr_distance
-        self.curr_distance = calc_distance(self.curr_pose,self.goal_pose)
-        self.pointcloud = self.voxel_space.pointcloud
-        self.s3d = self.voxel_space.s3d
-        self.collision = check_collision(self.pointcloud,self.curr_num_points,self.curr_pose[4:],self.r)
-        self.goal = self.curr_distance <= self.goal_threshold
-        self.done = self.collision or self.goal
-        self.truncated = self.num_steps > self.max_steps
-
-        # 5 : calculate reward
-        reward = self.calc_reward()
-        visualize_pcd(self.pointcloud)
-
-        state = [self.s3d, self.curr_pose, self.goal_pose]
-
-        return state, reward, self.done, self.truncated
     
 
     def get_goalpose(self):
@@ -283,24 +282,4 @@ class Env:
     
 if __name__ == "__main__":
     env = Env()
-    
-    for _ in range(1000):
-        print("-------------------------------")
-        num_objets = np.random.randint(1,5)
-        state = env.reset(1)
-        if state == False:
-            continue
-        state, reward, done,truncated = env.step([0.682982, 0.6830478, -0.1830045, -0.1830045, 0.45, 0.15, 0.51961524])
-        print(reward,done)
-        state, reward, done,truncated = env.step([0.2499775, 0.9330252, -0.2499775, -0.0669813, 0.3, 0.41, 0.51961524])
-        print(reward,done)
-        state, reward, done,truncated = env.step([-0.2499999999983246, 0.933012701893705, -0.2499999999983246, 0.06698729809959345, 6.40987562e-17, 0.409807621, 0.519615242])
-        print(reward,done)
-        state, reward, done,truncated = env.step([-0.6830127018975046, 0.6830127018975047, -0.18301270187249408, 0.18301270187249408, -0.15, 0.15, 0.519615242])
-        print(reward,done)
-        state, reward, done,truncated = env.step([0.933012701893705, -0.2499999999983246, 0.06698729809959346, -0.2499999999983246, -1.04160479e-16, -0.109807621, 0.519615242])
-        print(reward,done)
-        state, reward, done,truncated = env.step([0.9330127018661368, 0.2500000000294135, -0.06698729825151725, -0.2500000000294135, 0.3, -0.10980762, 0.51961524])                                                                          
-        print(reward,done)
-        state, reward, done,truncated = env.last_step()   
-        print(reward,done)
+    check_env(env)
