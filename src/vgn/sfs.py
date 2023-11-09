@@ -27,7 +27,7 @@ class VoxelSpace:
         self.points3D_world[3,:] = 1
         
         # camera intrinsic
-        self.K = K
+        self.K = np.array(K)
         self.near = near
 
         self.table_height = table_height
@@ -98,8 +98,7 @@ class VoxelSpace:
         image[np.where(image != 0)] = 1
         silhouette = image > 0
         return height, width, image, silhouette
-
-
+    
     @property
     def pointcloud(self):
         ind = np.where(self.voxels[:,5] == 1.0)
