@@ -113,3 +113,4 @@ data
 image
 seg_image
 pointcloud.ply
+runs/
