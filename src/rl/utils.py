@@ -88,7 +88,8 @@ def calc_distance(pose1,pose2):
     q2 = Quaternion(np.array(pose2[:4]))
     q_dist = Quaternion.absolute_distance(q1,q2)
     p_dist = math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2 + (p1[2] - p2[2])**2)
-    return p_dist + q_dist
+    distance = 0.5 * p_dist + 0.5 * q_dist
+    return p_dist, q_dist, distance 
 
 def check_collision(pointcloud,num_points,pose,r):
     """

@@ -124,21 +124,20 @@ cfg_trainer = {"timesteps": 10000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 # start training
-trainer.train()
+# trainer.train()
 
 
 # # ---------------------------------------------------------
 # # comment the code above: `trainer.train()`, and...
 # # uncomment the following lines to evaluate a trained agent
 # # ---------------------------------------------------------
-# from skrl.utils.huggingface import download_model_from_huggingface
+from skrl.utils.huggingface import download_model_from_huggingface
 
-# # download the trained agent's checkpoint from Hugging Face Hub and load it
-# path = download_model_from_huggingface("skrl/IsaacGymEnvs-Ant-PPO", filename="agent.pt")
-# agent.load(path)
+# download the trained agent's checkpoint from Hugging Face Hub and load it
+agent.load("runs/1113/23-11-13_14-58-03-548750_PPO/checkpoints/best_agent.pt")
 
-# # start evaluation
-# trainer.eval()
+# start evaluation
+trainer.eval()
 
 
 

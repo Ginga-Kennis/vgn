@@ -4,6 +4,7 @@ import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3.common.env_checker import check_env
 from pathlib import Path
+from pyquaternion import Quaternion
 
 from vgn.detection import VGN
 from vgn.grasp import *
@@ -16,13 +17,13 @@ from utils import *
 State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
-NUM_OBJECTS = 2
+NUM_OBJECTS = 1
 INITIAL_POSE = [1, 0, 0, 0, 0.15, 0.15, 0.6]
-MAX_STEPS = 50
+MAX_STEPS = 30
 GOAL_THRESHOLD = 0.03
 CAMERA_RADIUS = 0.1
-ACTION_QUAT_SACLE = 0.05
-ACTION_TRANS_SACLE = 0.05
+# ACTION_QUAT_SACLE = 0.2
+ACTION_TRANS_SACLE = 0.07
 PREGRASP_X = 0.0
 PREGRASP_Z = -0.15
 
@@ -65,13 +66,20 @@ class Env(gym.Env):
         return {"s3d" : self.s3d.astype(np.uint8), "pose" : pose.astype(np.float32)}
     
     def _get_curr_pose(self,action):
-        action[:4] *= ACTION_QUAT_SACLE     # scale quat
+        action = np.clip(action,-1.0,1.0)
+        # ROTATION
+        q1 = Quaternion(self.curr_pose[:4]).normalised
+        q2 = Quaternion(action[:4]).normalised
+        q3 = q1.rotate(q2).normalised
+        self.curr_pose[:4] = np.array(q3.elements)
+
+        # POSITION
         action[4:] *= ACTION_TRANS_SACLE     # scale trans
-        self.curr_pose = self.curr_pose + action
-        self.curr_pose[:4] /= np.linalg.norm(self.curr_pose[:4])
+        self.curr_pose[4:] += action[4:]
+
     
     def _get_info(self):
-        return {"distance" : self.curr_distance, "num_points" : self.curr_num_points, "collision" : self.collision}
+        return {"position distance" : self.pos_distance,"quaternion distance" : self.quat_distance ,"num_points" : self.curr_num_points, "collision" : self.collision}
         
         
     def reset(self,seed=None, options=None):
@@ -79,17 +87,20 @@ class Env(gym.Env):
         # reset num_steps
         self.num_steps = 0
 
-        # 1 : Reset (Simulation, VoxelSpace)
-        self.sim.reset(NUM_OBJECTS)
-        self.voxel_space.reset()
+        # reset till find valid grasp pose
+        while True:
+            # 1 : Reset (Simulation, VoxelSpace)
+            self.sim.reset(NUM_OBJECTS)
+            self.voxel_space.reset()
 
-        # 2 : get goal pose
-        self.goal_pose = self.get_goalpose()
-        if self.goal_pose == False:
-            print("********* NO GRASP DETECTED *************")
-            return False
-        else:
-            self.goal_pose = np.array(from_matrix(self.goal_pose.as_matrix()))
+            # 2 : get goal pose
+            self.goal_pose = self.get_goalpose()
+
+            if self.goal_pose != False:
+                self.goal_pose = np.array(from_matrix(self.goal_pose.as_matrix()))
+                break
+
+
 
         # 3 : set curr_pose to Initial pose
         self.curr_pose = np.array(INITIAL_POSE)
@@ -101,8 +112,8 @@ class Env(gym.Env):
         # 5 : set params
         self.prev_num_points = 0
         self.curr_num_points = self.voxel_space.num_points
-        self.prev_distance = 0
-        self.curr_distance = calc_distance(self.curr_pose,self.goal_pose)
+        self.prev_pos_distance = 0
+        self.pos_distance,self.quat_distance, self.distance = calc_distance(self.curr_pose,self.goal_pose)
         self.pointcloud = self.voxel_space.pointcloud
         self.s3d = self.voxel_space.s3d
         self.collision = False
@@ -113,7 +124,7 @@ class Env(gym.Env):
         # 6 : get state & info
         state = self._get_obs()
         info = self._get_info()
-        # print(f"RESET : {info}")
+        # print(info)
         return state, info
 
         
@@ -131,12 +142,11 @@ class Env(gym.Env):
         # 4 : set parameters
         self.prev_num_points = self.curr_num_points
         self.curr_num_points = self.voxel_space.num_points
-        self.prev_distance = self.curr_distance
-        self.curr_distance = calc_distance(self.curr_pose,self.goal_pose)
+        self.pos_distance,self.quat_distance, self.distance = calc_distance(self.curr_pose,self.goal_pose)
         self.pointcloud = self.voxel_space.pointcloud
         self.s3d = self.voxel_space.s3d
         self.collision = check_collision(self.pointcloud,self.curr_num_points,self.curr_pose[4:],self.r)
-        self.goal = self.curr_distance <= self.goal_threshold
+        self.goal = self.distance <= self.goal_threshold
         self.done = self.collision or self.goal
         self.truncated = self.num_steps > self.max_steps
         # visualize_pcd(self.pointcloud)
@@ -146,9 +156,7 @@ class Env(gym.Env):
 
         state = self._get_obs()
         info = self._get_info()
-        print(f"STEP : {info}")
-        # print(f"REWARD : {reward}")
-        # print("------------------")
+        # print(info)
         return state, reward, self.done, self.truncated, info
     
     
@@ -183,18 +191,17 @@ class Env(gym.Env):
         self.voxel_space.sfs(seg_image,to_matrix(q, t))
 
     def calc_reward(self):
-        # GOAL : reward = 10
         if self.goal == True:
-            rw = 5
-        
-        # COLLISION : reward = -10
-        elif self.collision == True:
-            rw = -5
-
-        # NORMAL : 
+            rw = 1
+        elif self.goal == False and self.truncated == True:
+            rw = -0.02
         else:
-            rw = ((self.prev_distance - self.curr_distance) / self.prev_distance) + ((self.prev_num_points - self.curr_num_points) / self.prev_num_points)
+            if self.prev_num_points != 0:
+                rw = -self.distance + ((self.prev_num_points - self.curr_num_points) / self.prev_num_points)
+            else:
+                rw = -self.distance
         return rw
+
 
 
     
