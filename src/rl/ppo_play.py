@@ -13,6 +13,20 @@ from skrl.resources.schedulers.torch import KLAdaptiveRL
 from skrl.trainers.torch import SequentialTrainer
 
 from environment import Env
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from skrl.agents.torch.ppo import PPO, PPO_DEFAULT_CONFIG
+from skrl.envs.torch import wrap_env
+from skrl.memories.torch import RandomMemory
+from skrl.models.torch import Model, GaussianMixin, DeterministicMixin
+from skrl.resources.preprocessors.torch import RunningStandardScaler
+from skrl.resources.schedulers.torch import KLAdaptiveRL
+from skrl.trainers.torch import SequentialTrainer
+
+from environment import Env
 
 class Shared(GaussianMixin, DeterministicMixin, Model):
     def __init__(self, observation_space, action_space, device, clip_actions=False, 
@@ -30,10 +44,10 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
                                                nn.Flatten(),
                                                nn.Linear(8000,512),
                                                nn.ReLU(),
-                                               nn.Linear(512,8),
+                                               nn.Linear(512,16),
                                                nn.Tanh())
         
-        self.net = nn.Sequential(nn.Linear(22,32),
+        self.net = nn.Sequential(nn.Linear(28,32),
                                  nn.ReLU(),
                                  nn.Linear(32,32),
                                  nn.ReLU())
@@ -109,7 +123,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 # logging to TensorBoard and write checkpoints (in timesteps)
 cfg["experiment"]["write_interval"] = 40
 cfg["experiment"]["checkpoint_interval"] = 400
-cfg["experiment"]["directory"] = "runs/1113"
+cfg["experiment"]["directory"] = "runs/1115"
 
 agent = PPO(models=models,
             memory=memory,
@@ -131,13 +145,15 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 # # comment the code above: `trainer.train()`, and...
 # # uncomment the following lines to evaluate a trained agent
 # # ---------------------------------------------------------
-from skrl.utils.huggingface import download_model_from_huggingface
+# from skrl.utils.huggingface import download_model_from_huggingface
 
-# download the trained agent's checkpoint from Hugging Face Hub and load it
-agent.load("runs/1113/23-11-13_14-58-03-548750_PPO/checkpoints/best_agent.pt")
+# # download the trained agent's checkpoint from Hugging Face Hub and load it
+# path = download_model_from_huggingface("skrl/IsaacGymEnvs-Ant-PPO", filename="agent.pt")
+agent.load("runs/1115/23-11-15_14-58-29-749674_PPO/checkpoints/agent_314800.pt")
 
 # start evaluation
 trainer.eval()
+
 
 
 

@@ -33,18 +33,18 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
                                                nn.Linear(512,16),
                                                nn.Tanh())
         
-        self.net = nn.Sequential(nn.Linear(28,32),
+        self.net = nn.Sequential(nn.Linear(28,256),
                                  nn.ReLU(),
-                                 nn.Linear(32,32),
+                                 nn.Linear(256,64),
                                  nn.ReLU())
         
         # policy
-        self.mean_layer = nn.Sequential(nn.Linear(32, self.num_actions),
+        self.mean_layer = nn.Sequential(nn.Linear(64, self.num_actions),
                                         nn.Tanh())
         self.log_std_parameter = nn.Parameter(torch.zeros(self.num_actions))
 
         # value
-        self.value_layer = nn.Linear(32,1)
+        self.value_layer = nn.Linear(64,1)
 
     def act(self, inputs, role):
         if role == "policy":
@@ -98,7 +98,7 @@ cfg["grad_norm_clip"] = 0
 cfg["ratio_clip"] = 0.2
 cfg["value_clip"] = 0.2
 cfg["clip_predicted_values"] = True
-cfg["entropy_loss_scale"] = 0.0
+cfg["entropy_loss_scale"] = 0.01
 cfg["value_loss_scale"] = 1.0
 cfg["kl_threshold"] = 0
 cfg["rewards_shaper"] = lambda rewards, timestep, timesteps: rewards * 0.01
@@ -109,7 +109,8 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 # logging to TensorBoard and write checkpoints (in timesteps)
 cfg["experiment"]["write_interval"] = 40
 cfg["experiment"]["checkpoint_interval"] = 400
-cfg["experiment"]["directory"] = "runs/1115"
+cfg["experiment"]["directory"] = "runs/1116"
+cfg["experiment"]["experiment_name"] = "1010start"
 
 agent = PPO(models=models,
             memory=memory,

@@ -108,3 +108,47 @@ def check_collision(pointcloud,num_points,pose,r):
     if len(ind[0]) != 0 or pose[2] - 0.05 < r:
         return True
     return False
+
+def quat_to_eulerxyz(q):
+    r = R.from_quat([q[0], q[1], q[2], q[3]])
+    return r.as_euler('xyz', degrees=False)
+
+
+class Pose:
+    def __init__(self,orientation,position):
+        self.p = position
+        self.o = orientation
+        
+        if np.shape(self.o)[0] == 4:
+            self.quat_to_euler()
+
+        elif np.shape(self.o)[0] == 3:
+            self.euler_to_quat()
+
+
+    def quat_to_euler(self):
+        r = R.from_quat(self.o)
+        self.o_euler = r.as_euler("xyz",degrees=False)
+        self.o_quat = self.o
+
+    def euler_to_quat(self):
+        r = R.from_euler("xyz",self.o)
+        self.o_quat = r.as_quat()
+        self.o_euler = self.o
+
+    def update(self,delta):
+        self.o_euler += delta[:3]
+        self.p += delta[3:]
+
+        # update quaternion too
+        r = R.from_euler("xyz",self.o_euler)
+        self.o_quat = r.as_quat()
+
+    @property
+    def quatxyz(self):
+        return np.concatenate((self.o_quat,self.p),axis=0)
+    
+    @property
+    def eulerxyz(self):
+        return np.concatenate((self.o_euler,self.p),axis=0)
+
