@@ -29,9 +29,9 @@ class Actor(DeterministicMixin, Model):
                                        nn.Linear(512,16),
                                        nn.Tanh())
         
-        self.net = nn.Sequential(nn.Linear(28,32),
+        self.net = nn.Sequential(nn.Linear(28,128),
                                  nn.ReLU(),
-                                 nn.Linear(32,6),
+                                 nn.Linear(128,6),
                                  nn.Tanh())
 
     def compute(self, inputs, role):
@@ -43,7 +43,6 @@ class Actor(DeterministicMixin, Model):
 
         feature = self.feature_extractor(voxel)
         feature_pose = torch.cat([feature,pose],dim=1)
-        print(feature_pose)
         return self.net(feature_pose), {}
     
 class Critic(DeterministicMixin, Model):
@@ -84,7 +83,7 @@ env = wrap_env(env)
 
 device = env.device
 # device = "cpu"
-memory = RandomMemory(memory_size=15625, num_envs=env.num_envs, device=device)
+memory = RandomMemory(memory_size=1000, num_envs=env.num_envs, device=device)
 
 models = {}
 models["policy"] = Actor(env.observation_space, env.action_space, device)
@@ -110,7 +109,8 @@ cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": dev
 # logging to TensorBoard and write checkpoints (in timesteps)
 cfg["experiment"]["write_interval"] = 800
 cfg["experiment"]["checkpoint_interval"] = 8000
-cfg["experiment"]["directory"] = "runs/torch/Ant"
+cfg["experiment"]["directory"] = "runs/1116"
+cfg["experiment"]["experiment_nam"] = "1400DDPG"
 
 agent = DDPG(models=models,
              memory=memory,
@@ -121,7 +121,7 @@ agent = DDPG(models=models,
 
 
 # configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 160000, "headless": True}
+cfg_trainer = {"timesteps": 10000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 # start training

@@ -186,7 +186,7 @@ class Env(gym.Env):
     
     def sfs(self,q,t,n):
         rgb_image, _, _ = self.sim.camera2.get_image(q,t)
-        seg_image = get_segimage(rgb_image,n,save_image=True)
+        seg_image = get_segimage(rgb_image,n,save_image=False)
         self.voxel_space.sfs(seg_image,to_matrix(q, t))
 
     def calc_reward(self):
@@ -196,6 +196,7 @@ class Env(gym.Env):
             rw = -0.02
         else:
             rw = -self.distance - (self.curr_num_points/self.init_num_points)*0.4
+        
         return rw
 
 
