@@ -82,7 +82,7 @@ env = Env()
 env = wrap_env(env)
 
 device = env.device
-print(device)
+
 memory = RandomMemory(memory_size=10000, num_envs=env.num_envs, device=device)
 
 models = {}
@@ -110,7 +110,7 @@ cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": dev
 cfg["experiment"]["write_interval"] = 40
 cfg["experiment"]["checkpoint_interval"] = 400
 cfg["experiment"]["directory"] = "runs/1116"
-cfg["experiment"]["experiment_name"] = "1441DDPG"
+cfg["experiment"]["experiment_name"] = "1441DDPG_EVAL"
 
 agent = DDPG(models=models,
              memory=memory,
@@ -125,4 +125,9 @@ cfg_trainer = {"timesteps": 10000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 # start training
-trainer.train()
+# trainer.train()
+
+agent.load("runs/1116/1441DDPG/checkpoints/agent_9600.pt")
+
+# start evaluation
+trainer.eval()
