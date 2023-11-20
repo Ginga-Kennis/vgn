@@ -99,11 +99,11 @@ cfg["exploration"]["noise"] = OrnsteinUhlenbeckNoise(theta=0.15, sigma=0.1, base
 cfg["gradient_steps"] = 1
 cfg["batch_size"] = 256
 cfg["discount_factor"] = 0.98
-cfg["polyak"] = 0.005
-cfg["actor_learning_rate"] = 1e-3
+cfg["polyak"] = 0.01
+cfg["actor_learning_rate"] = 1e-4
 cfg["critic_learning_rate"] = 1e-3
-cfg["random_timesteps"] = 80
-cfg["learning_starts"] = 80
+cfg["random_timesteps"] = 0
+cfg["learning_starts"] = 0
 cfg["state_preprocessor"] = RunningStandardScaler
 cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
 # logging to TensorBoard and write checkpoints (in timesteps)
@@ -121,7 +121,7 @@ agent = DDPG(models=models,
 
 
 # configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 1000000, "headless": True}
+cfg_trainer = {"timesteps": 3000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 # start training

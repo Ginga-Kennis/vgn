@@ -20,7 +20,7 @@ State = collections.namedtuple("State", ["tsdf", "pc"])
 NUM_OBJECTS = 1
 INITIAL_POSE = [-3.1415, 0, 0, 0.15, 0.15, 0.6]  # Top down view
 MAX_STEPS = 15
-INIT_GOAL_THRESHOLD = 0.1
+INIT_GOAL_THRESHOLD = 0.12
 END_GOAL_THRESHOLD = 0.01
 COLLISION_RADIUS = 0.05    # 5cm
 ACTION_ORI_SACLE = 0.262  # 15度
@@ -69,7 +69,6 @@ class Env(gym.Env):
         return {"s3d" : self.s3d.astype(np.uint8), "pose" : pose.astype(np.float32)}
     
     def _get_curr_pose(self,action):
-        action = np.clip(action,-1.0,1.0)
         action[:3] *= ACTION_ORI_SACLE
         action[3:] *= ACTION_TRANS_SACLE
 
@@ -194,12 +193,16 @@ class Env(gym.Env):
     def calc_reward(self):
         if self.goal == True:
             rw = 1
+        elif self.pos_distance < self.goal_threshold:
+            rw = 0.5
+        elif self.quat_distance < self.goal_threshold:
+            rw = 0.5
         elif self.truncated == True:
             rw = -0.4
         elif self.collision == True:
             rw = -0.4
-        else:
-            rw = -self.distance - (self.curr_num_points/self.init_num_points)*0.5
+        
+        rw = -self.distance - (self.curr_num_points/self.init_num_points)*0.5
         print(rw)
         return rw
 
