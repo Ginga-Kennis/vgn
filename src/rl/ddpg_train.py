@@ -82,7 +82,7 @@ env = Env()
 env = wrap_env(env)
 
 device = env.device
-print(device)
+
 memory = RandomMemory(memory_size=10000, num_envs=env.num_envs, device=device)
 
 models = {}
@@ -97,20 +97,20 @@ models["target_critic"] = Critic(env.observation_space, env.action_space, device
 cfg = DDPG_DEFAULT_CONFIG.copy()
 cfg["exploration"]["noise"] = OrnsteinUhlenbeckNoise(theta=0.15, sigma=0.1, base_scale=0.5, device=device)
 cfg["gradient_steps"] = 1
-cfg["batch_size"] = 32
-cfg["discount_factor"] = 0.99
+cfg["batch_size"] = 256
+cfg["discount_factor"] = 0.98
 cfg["polyak"] = 0.005
-cfg["actor_learning_rate"] = 5e-4
-cfg["critic_learning_rate"] = 5e-4
+cfg["actor_learning_rate"] = 1e-3
+cfg["critic_learning_rate"] = 1e-3
 cfg["random_timesteps"] = 80
 cfg["learning_starts"] = 80
 cfg["state_preprocessor"] = RunningStandardScaler
 cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
 # logging to TensorBoard and write checkpoints (in timesteps)
-cfg["experiment"]["write_interval"] = 40
-cfg["experiment"]["checkpoint_interval"] = 400
-cfg["experiment"]["directory"] = "runs/1116"
-cfg["experiment"]["experiment_name"] = "1441DDPG"
+cfg["experiment"]["write_interval"] = 100
+cfg["experiment"]["checkpoint_interval"] = 1000
+cfg["experiment"]["directory"] = "runs/1120"
+cfg["experiment"]["experiment_name"] = "DDPG"
 
 agent = DDPG(models=models,
              memory=memory,
@@ -121,7 +121,7 @@ agent = DDPG(models=models,
 
 
 # configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 10000000, "headless": True}
+cfg_trainer = {"timesteps": 1000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 # start training

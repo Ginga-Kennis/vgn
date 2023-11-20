@@ -83,7 +83,7 @@ env = wrap_env(env)
 
 device = env.device
 
-memory = RandomMemory(memory_size=10000, num_envs=env.num_envs, device=device)
+memory = RandomMemory(memory_size=10, num_envs=env.num_envs, device=device)
 
 models = {}
 models["policy"] = Actor(env.observation_space, env.action_space, device)
@@ -97,7 +97,7 @@ models["target_critic"] = Critic(env.observation_space, env.action_space, device
 cfg = DDPG_DEFAULT_CONFIG.copy()
 cfg["exploration"]["noise"] = OrnsteinUhlenbeckNoise(theta=0.15, sigma=0.1, base_scale=0.5, device=device)
 cfg["gradient_steps"] = 1
-cfg["batch_size"] = 32
+cfg["batch_size"] = 1
 cfg["discount_factor"] = 0.99
 cfg["polyak"] = 0.005
 cfg["actor_learning_rate"] = 5e-4
@@ -127,7 +127,7 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 # start training
 # trainer.train()
 
-agent.load("runs/1116/1441DDPG/checkpoints/agent_9600.pt")
+agent.load("runs/1119/DDPG/checkpoints/best_agent.pt")
 
 # start evaluation
 trainer.eval()

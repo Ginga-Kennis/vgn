@@ -19,9 +19,9 @@ State = collections.namedtuple("State", ["tsdf", "pc"])
 # ENVIRONMENT PARAMS
 NUM_OBJECTS = 1
 INITIAL_POSE = [-3.1415, 0, 0, 0.15, 0.15, 0.6]  # Top down view
-MAX_STEPS = 30
-INIT_GOAL_THRESHOLD = 0.15
-END_GOAL_THRESHOLD = 0.03
+MAX_STEPS = 15
+INIT_GOAL_THRESHOLD = 0.1
+END_GOAL_THRESHOLD = 0.01
 COLLISION_RADIUS = 0.05    # 5cm
 ACTION_ORI_SACLE = 0.262  # 15度
 ACTION_TRANS_SACLE = 0.05 # 5cm
@@ -50,7 +50,7 @@ class Env(gym.Env):
          
     
         # Initialize (Simulation, VoxelSpace,VGN)
-        self.sim = ClutterRemovalSim(scene="packed", object_set="packed/train", gui=False)
+        self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=True)
         self.voxel_space = VoxelSpace(X_RANGE,Y_RANGE,Z_RANGE,VOXEL_SIZE,K,NEAR,TABLE_HEIGHT)
         self.vgn = VGN(model_path=Path("data/models/vgn_conv.pth"),rviz=False)
 
@@ -76,19 +76,21 @@ class Env(gym.Env):
         self.curr_pose.update(action)
     
     def _get_info(self):
-        return {"distance" : self.distance , "threshold" : self.goal_threshold,"num_points" : self.curr_num_points ,"collision" : self.collision, "goal" : self.goal}
+        return {"p_dist" : self.pos_distance, "o_dist" : self.quat_distance, "distance" : self.distance , "threshold" : self.goal_threshold,"num_points" : self.curr_num_points ,"collision" : self.collision, "goal" : self.goal}
         
         
     def reset(self,seed=None, options=None):
         super().reset(seed=seed)
         # reset num_steps
         self.num_steps = 0
-        self.goal_threshold += (END_GOAL_THRESHOLD - INIT_GOAL_THRESHOLD) / 200000
+        if self.goal_threshold > END_GOAL_THRESHOLD:
+            self.goal_threshold += (END_GOAL_THRESHOLD - INIT_GOAL_THRESHOLD) / 30000
 
         # reset till find valid grasp pose
         while True:
             # 1 : Reset (Simulation, VoxelSpace)
-            self.sim.reset(NUM_OBJECTS)
+            num_objects = np.random.randint(1,5)
+            self.sim.reset(num_objects)
             self.voxel_space.reset()
 
             # 2 : get goal pose
@@ -192,11 +194,13 @@ class Env(gym.Env):
     def calc_reward(self):
         if self.goal == True:
             rw = 1
-        elif self.goal == False and self.truncated == True:
-            rw = -0.02
+        elif self.truncated == True:
+            rw = -0.4
+        elif self.collision == True:
+            rw = -0.4
         else:
-            rw = -self.distance - (self.curr_num_points/self.init_num_points)*0.4
-        
+            rw = -self.distance - (self.curr_num_points/self.init_num_points)*0.5
+        print(rw)
         return rw
 
 
