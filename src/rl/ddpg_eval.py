@@ -127,7 +127,7 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 # start training
 # trainer.train()
 
-agent.load("runs/1120/DDPG/checkpoints/best_agent.pt")
+agent.load("runs/1121/DDPG1/checkpoints/agent_371000.pt")
 
 # start evaluation
 trainer.eval()

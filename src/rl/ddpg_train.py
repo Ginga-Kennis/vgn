@@ -109,7 +109,7 @@ cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": dev
 # logging to TensorBoard and write checkpoints (in timesteps)
 cfg["experiment"]["write_interval"] = 100
 cfg["experiment"]["checkpoint_interval"] = 1000
-cfg["experiment"]["directory"] = "runs/1120"
+cfg["experiment"]["directory"] = "runs/1126"
 cfg["experiment"]["experiment_name"] = "DDPG"
 
 agent = DDPG(models=models,

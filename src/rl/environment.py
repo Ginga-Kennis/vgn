@@ -4,7 +4,6 @@ import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3.common.env_checker import check_env
 from pathlib import Path
-from pyquaternion import Quaternion
 
 from vgn.detection import VGN
 from vgn.grasp import *
@@ -20,7 +19,7 @@ State = collections.namedtuple("State", ["tsdf", "pc"])
 NUM_OBJECTS = 1
 INITIAL_POSE = [-3.1415, 0, 0, 0.15, 0.15, 0.6]  # Top down view
 MAX_STEPS = 15
-INIT_GOAL_THRESHOLD = 0.12
+INIT_GOAL_THRESHOLD = 0.07
 END_GOAL_THRESHOLD = 0.01
 COLLISION_RADIUS = 0.05    # 5cm
 ACTION_ORI_SACLE = 0.262  # 15度
@@ -50,7 +49,7 @@ class Env(gym.Env):
          
     
         # Initialize (Simulation, VoxelSpace,VGN)
-        self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=True)
+        self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=False)
         self.voxel_space = VoxelSpace(X_RANGE,Y_RANGE,Z_RANGE,VOXEL_SIZE,K,NEAR,TABLE_HEIGHT)
         self.vgn = VGN(model_path=Path("data/models/vgn_conv.pth"),rviz=False)
 
@@ -83,7 +82,7 @@ class Env(gym.Env):
         # reset num_steps
         self.num_steps = 0
         if self.goal_threshold > END_GOAL_THRESHOLD:
-            self.goal_threshold += (END_GOAL_THRESHOLD - INIT_GOAL_THRESHOLD) / 30000
+            self.goal_threshold += (END_GOAL_THRESHOLD - INIT_GOAL_THRESHOLD) / 60000
 
         # reset till find valid grasp pose
         while True:
@@ -114,6 +113,7 @@ class Env(gym.Env):
         self.curr_num_points = self.voxel_space.num_points
         self.prev_pos_distance = 0
         self.pos_distance,self.quat_distance, self.distance = calc_distance(self.curr_pose.quatxyz,self.goal_pose.quatxyz)
+        self.init_distance = self.distance
         self.pointcloud = self.voxel_space.pointcloud
         self.s3d = self.voxel_space.s3d
         self.collision = False
@@ -145,7 +145,7 @@ class Env(gym.Env):
         self.pointcloud = self.voxel_space.pointcloud
         self.s3d = self.voxel_space.s3d
         self.collision = check_collision(self.pointcloud,self.curr_num_points,self.curr_pose.p,self.r)
-        self.goal = self.distance <= self.goal_threshold
+        self.goal = (self.pos_distance <= self.goal_threshold) and (self.quat_distance <= self.goal_threshold)
         self.done = self.collision or self.goal
         self.truncated = self.num_steps > self.max_steps
         # visualize_pcd(self.pointcloud)
@@ -157,7 +157,6 @@ class Env(gym.Env):
         info = self._get_info()
         print(f"STEP : {info}")
         return state, reward, self.done, self.truncated, info
-    
     
 
     def get_goalpose(self):
@@ -191,18 +190,19 @@ class Env(gym.Env):
         self.voxel_space.sfs(seg_image,to_matrix(q, t))
 
     def calc_reward(self):
+        rw =  (self.init_distance - self.distance)/self.distance + (self.init_num_points - self.curr_num_points)/self.init_num_points
+
         if self.goal == True:
-            rw = 1
-        elif self.pos_distance < self.goal_threshold:
-            rw = 0.5
-        elif self.quat_distance < self.goal_threshold:
-            rw = 0.5
-        elif self.truncated == True:
-            rw = -0.4
-        elif self.collision == True:
-            rw = -0.4
-        
-        rw = -self.distance - (self.curr_num_points/self.init_num_points)*0.5
+            rw += 1.5
+        elif self.pos_distance <= self.goal_threshold:
+            rw += 1.0
+        elif self.quat_distance <= self.goal_threshold:
+            rw += 1.0
+        # elif self.truncated == True:
+        #     rw = -0.2
+        # elif self.collision == True:
+        #     rw = -0.2
+    
         print(rw)
         return rw
 
