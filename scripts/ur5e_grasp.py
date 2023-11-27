@@ -19,7 +19,7 @@ from vgn.utils.ur5e_control import Ur5eCommander
 from vgn.utils.gripper_control import GripperController
 
 # tag lies on the table in the center of the workspace
-T_base_tag = Transform(Rotation.identity(), [0.1, 0.5, 0.1]) # identity transformation
+T_base_tag = Transform(Rotation.identity(), [0.1, 0.5, -0.06]) # identity transformation
 
 class Ur5eGraspController(object):
     def __init__(self):
