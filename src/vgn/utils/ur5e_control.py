@@ -1,5 +1,7 @@
 import moveit_commander
 import rospy
+import yaml
+import os
 
 from vgn.utils import ros_utils
 
@@ -13,23 +15,17 @@ class Ur5eCommander(object):
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
         self.move_group = moveit_commander.MoveGroupCommander(self.name)
+        self.move_group.set_planning_time(10)
 
     def goto_home(self):
-        self.goto_joints([1.5708,-1.5708,-1.0472,-2.0944,1.5708,0])
+        self.goto_joints([1.5708,-1.5708,-1.5708,-1.5708,1.5708,0])
 
     def goto_joints(self,joints,velocity_scaling=0.1,acceleration_scaling=0.1):
         self.move_group.set_max_velocity_scaling_factor(velocity_scaling)
         self.move_group.set_max_acceleration_scaling_factor(acceleration_scaling)
         self.move_group.set_joint_value_target(joints)
         plan = self.move_group.plan()[1]
-        
-        user_input = input("EXECUTE PLAN [y/n] : ")
-        if user_input == "y":
-            success = self.move_group.execute(plan, wait=True)
-        else:
-            print("ABORTED PLAN")
-            success = False
-
+        success = self.move_group.execute(plan, wait=True)
         self.move_group.stop()
         return success
     
