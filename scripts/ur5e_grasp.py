@@ -19,7 +19,7 @@ from vgn.utils.ur5e_control import Ur5eCommander
 from vgn.utils.gripper_control import GripperController
 
 # tag lies on the table in the center of the workspace
-T_base_tag = Transform(Rotation.identity(), [0.1, 0.5, 0.1]) # identity transformation
+T_base_tag = Transform(Rotation.identity(), [0.1, 0.6, -0.06]) # identity transformation
 
 class Ur5eGraspController(object):
     def __init__(self):
@@ -61,7 +61,6 @@ class Ur5eGraspController(object):
         self.ur5e_commander.scene.add_box("table",table,size=(0.6, 0.6, 0.02))
     
     def run(self):
-        time.sleep(10.0)
         vis.clear()
         vis.draw_workspace(self.size)
         self.ur5e_commander.goto_home()
@@ -89,7 +88,9 @@ class Ur5eGraspController(object):
         label = self.execute_grasp(grasp)
         rospy.loginfo("Grasp execution")
 
+
         # PLACE OBJECT
+        self.ur5e_commander.goto_home()
         self.ur5e_commander.goto_joints(self.place_joints[0])
         self.gripper_controller.gripper_control(130)
 
