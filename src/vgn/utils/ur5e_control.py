@@ -15,7 +15,7 @@ class Ur5eCommander(object):
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
         self.move_group = moveit_commander.MoveGroupCommander(self.name)
-        self.move_group.set_planning_time(10)
+        self.move_group.set_planning_time(5)
 
     def goto_home(self):
         self.goto_joints([1.5708,-1.5708,-1.5708,-1.5708,1.5708,0])
@@ -36,12 +36,12 @@ class Ur5eCommander(object):
         self.move_group.set_pose_target(pose_msg)
         plan = self.move_group.plan()[1]
 
-        user_input = input("EXECUTE PLAN [y/n] : ")
-        if user_input == "y":
-            success = self.move_group.execute(plan, wait=True)
-        else:
-            print("ABORTED PLAN")
-            success = False
-            
+        # user_input = input("EXECUTE PLAN [y/n] : ")
+        # if user_input == "y":
+        #     success = self.move_group.execute(plan, wait=True)
+        # else:
+        #     print("ABORTED PLAN")
+        #     success = False
+        success = self.move_group.execute(plan, wait=True)
         self.move_group.clear_pose_targets()
         return success

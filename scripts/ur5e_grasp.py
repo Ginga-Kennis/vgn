@@ -88,7 +88,9 @@ class Ur5eGraspController(object):
         label = self.execute_grasp(grasp)
         rospy.loginfo("Grasp execution")
 
+
         # PLACE OBJECT
+        self.ur5e_commander.goto_home()
         self.ur5e_commander.goto_joints(self.place_joints[0])
         self.gripper_controller.gripper_control(130)
 
