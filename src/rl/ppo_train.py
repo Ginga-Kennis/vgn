@@ -33,9 +33,9 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
                                                nn.Linear(512,16),
                                                nn.Tanh())
         
-        self.net = nn.Sequential(nn.Linear(28,256),
+        self.net = nn.Sequential(nn.Linear(28,128),
                                  nn.ReLU(),
-                                 nn.Linear(256,64),
+                                 nn.Linear(128,64),
                                  nn.ReLU())
         
         # policy
@@ -86,8 +86,8 @@ models["value"] = models["policy"]  # same instance: shared model
 cfg = PPO_DEFAULT_CONFIG.copy()
 cfg["rollouts"] = 16  # memory_size
 cfg["learning_epochs"] = 4
-cfg["mini_batches"] = 2  # 16 * 4096 / 32768
-cfg["discount_factor"] = 0.99
+# cfg["mini_batches"] = 10 
+cfg["discount_factor"] = 0.95
 cfg["lambda"] = 0.95
 cfg["learning_rate"] = 3e-4
 cfg["learning_rate_scheduler"] = KLAdaptiveRL
@@ -107,10 +107,10 @@ cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": dev
 cfg["value_preprocessor"] = RunningStandardScaler
 cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 # logging to TensorBoard and write checkpoints (in timesteps)
-cfg["experiment"]["write_interval"] = 40
-cfg["experiment"]["checkpoint_interval"] = 400
-cfg["experiment"]["directory"] = "runs/1116"
-cfg["experiment"]["experiment_name"] = "1010start"
+cfg["experiment"]["write_interval"] = 100
+cfg["experiment"]["checkpoint_interval"] = 1000
+cfg["experiment"]["directory"] = "runs/1129"
+cfg["experiment"]["experiment_name"] = "PPO"
 
 agent = PPO(models=models,
             memory=memory,
@@ -121,7 +121,7 @@ agent = PPO(models=models,
 
 
 # configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 10000000, "headless": True}
+cfg_trainer = {"timesteps": 3000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 # start training
