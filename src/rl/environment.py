@@ -16,18 +16,16 @@ from utils import *
 State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
-NUM_OBJECTS = 1
-INITIAL_POSE = [-3.1415, 0, 0, 0.15, 0.15, 0.6]  # Top down view
+INITIAL_POSE = [0.973249, 0, 0, -0.2297529, 0.15, -0.15, 0.6]  # Top down view
 MAX_STEPS = 15
-INIT_GOAL_THRESHOLD = 0.10
+INIT_GOAL_THRESHOLD = 0.17
 END_GOAL_THRESHOLD = 0.01
 COLLISION_RADIUS = 0.05    # 5cm
-ACTION_ORI_SACLE = 0.262  # 15度
 ACTION_TRANS_SACLE = 0.05 # 5cm
 PREGRASP_X = 0.0
 PREGRASP_Z = -0.15
 
-ALPHA = 0.0
+ALPHA = 0.1
 
 # VOXEL SPACE PARAMS
 X_RANGE = [0.0,0.3]
@@ -57,22 +55,39 @@ class Env(gym.Env):
         self.observation_space = spaces.Dict(
             {
                 "s3d" : spaces.Box(low=0, high=255,shape=(1,40,40,40), dtype=np.uint8),
-                "pose" : spaces.Box(low=-5, high=5,shape=(12,),dtype=np.float32)
+                "pose" : spaces.Box(low=-30, high=30,shape=(14,),dtype=np.float32)
             }
         )
 
-        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(7,), dtype=np.float32)
 
 
     def _get_obs(self):
-        pose = np.concatenate((self.curr_pose.eulerxyz,self.goal_pose.eulerxyz), axis=0)
+        pose = np.concatenate((self.curr_pose,self.goal_pose), axis=0)
         return {"s3d" : self.s3d.astype(np.uint8), "pose" : pose.astype(np.float32)}
     
     def _get_curr_pose(self,action):
-        action[:3] *= ACTION_ORI_SACLE
-        action[3:] *= ACTION_TRANS_SACLE
+        action = np.clip(action,-1,1)
+    
+        # unit quaternion
+        action[:4] /= np.linalg.norm(action[:4])
 
-        self.curr_pose.update(action)
+        # update quaternion
+        q = Quaternion(self.curr_pose[:4])
+        q_ = Quaternion(action[:4])
+        q = (q_ * q).normalised
+
+        self.curr_pose[0] = q[0]
+        self.curr_pose[1] = q[1]
+        self.curr_pose[2] = q[2]
+        self.curr_pose[3] = q[3]
+
+        # update translation
+        action[4:] *= ACTION_TRANS_SACLE
+        self.curr_pose[4:] += action[4:]
+
+
+
     
     def _get_info(self):
         return {"p_dist" : self.curr_pos_distance, "o_dist" : self.curr_quat_distance, "threshold" : self.goal_threshold,"num_points" : self.curr_num_points ,"goal" : self.done}
@@ -82,7 +97,7 @@ class Env(gym.Env):
         super().reset(seed=seed)
         # reset num_steps
         self.num_steps = 0
-        if self.goal_threshold > END_GOAL_THRESHOLD and self.total_steps % 300000:
+        if self.goal_threshold > END_GOAL_THRESHOLD and self.total_steps % 300000 == 0:
             self.goal_threshold -= 0.02
 
         # reset till find valid grasp pose
@@ -96,18 +111,17 @@ class Env(gym.Env):
             goal_pose = self.get_goalpose()
 
             if goal_pose != False:
-                goal_pose = np.array(from_matrix(goal_pose.as_matrix()))
-                self.goal_pose = Pose(goal_pose[:4],goal_pose[4:])
+                self.goal_pose = np.array(from_matrix(goal_pose.as_matrix()))
                 break
 
 
 
         # 3 : set curr_pose to Initial pose
-        self.curr_pose = Pose(np.array(INITIAL_POSE)[:3],np.array(INITIAL_POSE)[3:])
+        self.curr_pose = np.array(INITIAL_POSE)
 
 
         # 4 : SfS
-        self.sfs(self.curr_pose.quatxyz[:4],self.curr_pose.quatxyz[4:],self.num_steps)
+        self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
 
         # 5 : set params
         self.init_num_points = self.voxel_space.num_points
@@ -115,8 +129,8 @@ class Env(gym.Env):
         self.pointcloud = self.voxel_space.pointcloud
         self.s3d = self.voxel_space.s3d
 
-        self.init_pos_distance, self.init_quat_distance = calc_distance(self.curr_pose.quatxyz,self.goal_pose.quatxyz)
-        self.curr_pos_distance, self.curr_quat_distance = calc_distance(self.curr_pose.quatxyz,self.goal_pose.quatxyz)
+        self.init_pos_distance, self.init_quat_distance = calc_distance(self.curr_pose,self.goal_pose)
+        self.curr_pos_distance, self.curr_quat_distance = calc_distance(self.curr_pose,self.goal_pose)
 
         self.done = False
         self.truncated = False
@@ -138,14 +152,14 @@ class Env(gym.Env):
         self._get_curr_pose(action)
 
         # 3 : SfS
-        self.sfs(self.curr_pose.quatxyz[:4],self.curr_pose.quatxyz[4:],self.num_steps)
+        self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
 
         # 4 : set parameters
         self.curr_num_points = self.voxel_space.num_points
         self.pointcloud = self.voxel_space.pointcloud
         self.s3d = self.voxel_space.s3d
 
-        self.curr_pos_distance, self.curr_quat_distance = calc_distance(self.curr_pose.quatxyz,self.goal_pose.quatxyz)
+        self.curr_pos_distance, self.curr_quat_distance = calc_distance(self.curr_pose,self.goal_pose)
 
         self.done = (self.curr_pos_distance <= self.goal_threshold) and (self.curr_quat_distance <= self.goal_threshold)
         self.truncated = self.num_steps > self.max_steps
@@ -196,15 +210,13 @@ class Env(gym.Env):
     def calc_reward(self):
         rw = (self.init_pos_distance - self.curr_pos_distance) / self.init_pos_distance + (self.init_quat_distance - self.curr_quat_distance) / self.init_quat_distance + ALPHA*(self.init_num_points - self.curr_num_points) / self.init_num_points
 
+        # if self.done == True:
+        #     rw += 5.0
+        # elif self.curr_pos_distance <= self.goal_threshold:
+        #     rw += 2.5
+        # elif self.curr_quat_distance <= self.goal_threshold:
+        #     rw += 2.5
 
-        if self.done == True:
-            rw += 7.0
-        elif self.curr_pos_distance <= self.goal_threshold:
-            rw += 3.5
-        elif self.curr_quat_distance <= self.goal_threshold:
-            rw += 3.5
-
-    
         print(rw)
         return rw
 
@@ -212,5 +224,6 @@ class Env(gym.Env):
 
     
 if __name__ == "__main__":
+    # print((Transform.look_at(np.array([0.15,-0.15,0.6]),np.array([0.15,0.15,0.0]),np.array([0.0, 0.0, 1.0]))).inverse().as_matrix())
     env = Env()
     check_env(env)
