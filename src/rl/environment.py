@@ -1,3 +1,4 @@
+import rospy
 import collections
 import numpy as np
 import gymnasium as gym
@@ -5,6 +6,7 @@ from gymnasium import spaces
 from stable_baselines3.common.env_checker import check_env
 from pathlib import Path
 
+from vgn import vis
 from vgn.detection import VGN
 from vgn.grasp import *
 from vgn.simulation import ClutterRemovalSim
@@ -12,19 +14,20 @@ from vgn.utils.transform import Rotation, Transform
 
 from sfs import VoxelSpace
 from utils import *
+from visualizer import CamposeVisualizer
 
 State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
 INITIAL_POSE = [0.973249, 0, 0, -0.2297529, 0.15, -0.15, 0.6]  # Top down view
 MAX_STEPS = 12
-INIT_GOAL_THRESHOLD = 0.06
+GOAL_THRESHOLD = 0.04
 END_GOAL_THRESHOLD = 0.01
-COLLISION_RADIUS = 0.05    # 5cm
+# COLLISION_RADIUS = 0.05    # 5cm
 ACTION_TRANS_SACLE = 0.05 # 5cm
 PREGRASP_X = 0.0
 PREGRASP_Z = -0.15
-
+RVIZ = False
 ALPHA = 0.5
 
 # VOXEL SPACE PARAMS
@@ -41,17 +44,14 @@ class Env(gym.Env):
     def __init__(self):
         # Initialize params
         self.max_steps = MAX_STEPS
-        self.goal_threshold = INIT_GOAL_THRESHOLD 
-        # self.r = COLLISION_RADIUS 
-
+        self.goal_threshold = GOAL_THRESHOLD 
          
         # Initialize (Simulation, VoxelSpace,VGN)
-        self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=False)
+        self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=True)
         self.voxel_space = VoxelSpace(X_RANGE,Y_RANGE,Z_RANGE,VOXEL_SIZE,K,NEAR,TABLE_HEIGHT)
         self.vgn = VGN(model_path=Path("data/models/vgn_conv.pth"),rviz=False)
 
-        self.total_steps = 0
-
+        # gym environment definition
         self.observation_space = spaces.Dict(
             {
                 "s3d" : spaces.Box(low=0, high=255,shape=(1,40,40,40), dtype=np.uint8),
@@ -60,6 +60,11 @@ class Env(gym.Env):
         )
 
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(7,), dtype=np.float32)
+
+        # rviz visuzlizer
+        if RVIZ == True:
+            rospy.init_node("sim_grasp", anonymous=True)
+            self.camposevisualizer = CamposeVisualizer()
 
 
     def _get_obs(self):
@@ -87,8 +92,6 @@ class Env(gym.Env):
         self.curr_pose[4:] += action[4:]
 
 
-
-    
     def _get_info(self):
         return {"p_dist" : self.curr_pos_distance, "o_dist" : self.curr_quat_distance, "threshold" : self.goal_threshold,"num_points" : self.curr_num_points ,"goal" : self.done}
         
@@ -97,8 +100,6 @@ class Env(gym.Env):
         super().reset(seed=seed)
         # reset num_steps
         self.num_steps = 0
-        if self.goal_threshold > END_GOAL_THRESHOLD and self.total_steps % 300000 == 0:
-            self.goal_threshold -= 0.02
 
         # reset till find valid grasp pose
         while True:
@@ -106,6 +107,10 @@ class Env(gym.Env):
             num_objects = np.random.randint(1,5)
             self.sim.reset(num_objects)
             self.voxel_space.reset()
+            if RVIZ == True:
+                vis.clear()
+                vis.draw_workspace(self.sim.size)
+
 
             # 2 : get goal pose
             goal_pose = self.get_goalpose()
@@ -113,11 +118,16 @@ class Env(gym.Env):
             if goal_pose != False:
                 self.goal_pose = np.array(from_matrix(goal_pose.as_matrix()))
                 break
+        
+        if RVIZ == True:
+            self.camposevisualizer.reset()
 
 
 
         # 3 : set curr_pose to Initial pose
         self.curr_pose = np.array(INITIAL_POSE)
+        if RVIZ == True:
+            self.camposevisualizer.publish(self.curr_pose)
 
 
         # 4 : SfS
@@ -150,6 +160,8 @@ class Env(gym.Env):
         
         # 2 : set current_pose (curr_pose + action)
         self._get_curr_pose(action)
+        if RVIZ == True:
+            self.camposevisualizer.publish(self.curr_pose)
 
         # 3 : SfS
         self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
@@ -164,9 +176,6 @@ class Env(gym.Env):
         self.done = (self.curr_pos_distance <= self.goal_threshold) and (self.curr_quat_distance <= self.goal_threshold)
         self.truncated = self.num_steps > self.max_steps
         # visualize_pcd(self.pointcloud)
-
-        if self.done == True or self.truncated == True:
-            self.total_steps += self.num_steps
 
         # 5 : calculate reward
         reward = self.calc_reward()
@@ -188,17 +197,22 @@ class Env(gym.Env):
         
         # plan grasps
         state = State(tsdf, pc)
-        grasps, _ , _ = self.vgn(state)
+        grasps, scores , _ = self.vgn(state)
         
         if len(grasps) == 0:
             return False
 
-        grasp = grasps[0]
+        grasp,score = grasps[0],scores[0]
         
         
         T_world_grasp = grasp.pose
         T_grasp_pregrasp = Transform(Rotation.identity(), [PREGRASP_X, 0.00, PREGRASP_Z])
         T_world_pregrasp = T_world_grasp * T_grasp_pregrasp
+
+        if RVIZ == True:
+            vis.draw_tsdf(tsdf.get_grid().squeeze(), tsdf.voxel_size)
+            vis.draw_points(np.asarray(pc.points))
+            vis.draw_grasp(grasp, score, self.sim.gripper.finger_depth)
         
         return T_world_pregrasp
     
