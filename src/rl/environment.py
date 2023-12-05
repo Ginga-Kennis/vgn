@@ -17,15 +17,15 @@ State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
 INITIAL_POSE = [0.973249, 0, 0, -0.2297529, 0.15, -0.15, 0.6]  # Top down view
-MAX_STEPS = 15
-INIT_GOAL_THRESHOLD = 0.17
+MAX_STEPS = 12
+INIT_GOAL_THRESHOLD = 0.06
 END_GOAL_THRESHOLD = 0.01
 COLLISION_RADIUS = 0.05    # 5cm
 ACTION_TRANS_SACLE = 0.05 # 5cm
 PREGRASP_X = 0.0
 PREGRASP_Z = -0.15
 
-ALPHA = 0.1
+ALPHA = 0.5
 
 # VOXEL SPACE PARAMS
 X_RANGE = [0.0,0.3]
@@ -210,12 +210,8 @@ class Env(gym.Env):
     def calc_reward(self):
         rw = (self.init_pos_distance - self.curr_pos_distance) / self.init_pos_distance + (self.init_quat_distance - self.curr_quat_distance) / self.init_quat_distance + ALPHA*(self.init_num_points - self.curr_num_points) / self.init_num_points
 
-        # if self.done == True:
-        #     rw += 5.0
-        # elif self.curr_pos_distance <= self.goal_threshold:
-        #     rw += 2.5
-        # elif self.curr_quat_distance <= self.goal_threshold:
-        #     rw += 2.5
+        if self.done == True:
+            rw += 5.0
 
         print(rw)
         return rw

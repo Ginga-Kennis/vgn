@@ -27,7 +27,9 @@ class Actor(DeterministicMixin, Model):
                                                nn.ReLU(),
                                                nn.Flatten())
         
-        self.net = nn.Sequential(nn.Linear(46,128),
+        self.net = nn.Sequential(nn.Linear(46,256),
+                                 nn.ReLU(),
+                                 nn.Linear(256,128),
                                  nn.ReLU(),
                                  nn.Linear(128,7),
                                  nn.Tanh())
@@ -60,7 +62,9 @@ class Critic(DeterministicMixin, Model):
         
         self.net = nn.Sequential(nn.Linear(53,128),
                                  nn.ReLU(),
-                                 nn.Linear(128,1))
+                                 nn.Linear(128,64),
+                                 nn.ReLU(),
+                                 nn.Linear(64,1))
 
     def compute(self, inputs, role):
         states = inputs["states"]
@@ -79,7 +83,7 @@ env = wrap_env(env)
 
 device = env.device
 
-memory = RandomMemory(memory_size=10000, num_envs=env.num_envs, device=device)
+memory = RandomMemory(memory_size=12000, num_envs=env.num_envs, device=device)
 
 models = {}
 models["policy"] = Actor(env.observation_space, env.action_space, device)
@@ -94,10 +98,10 @@ cfg = DDPG_DEFAULT_CONFIG.copy()
 cfg["exploration"]["noise"] = OrnsteinUhlenbeckNoise(theta=0.15, sigma=0.1, base_scale=0.5, device=device)
 cfg["gradient_steps"] = 1
 cfg["batch_size"] = 256
-cfg["discount_factor"] = 0.98
+cfg["discount_factor"] = 0.95
 cfg["polyak"] = 0.01
-cfg["actor_learning_rate"] = 1e-4
-cfg["critic_learning_rate"] = 1e-3
+cfg["actor_learning_rate"] = 3e-4
+cfg["critic_learning_rate"] = 3e-3
 cfg["random_timesteps"] = 0
 cfg["learning_starts"] = 0
 cfg["state_preprocessor"] = RunningStandardScaler
@@ -105,8 +109,8 @@ cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": dev
 # logging to TensorBoard and write checkpoints (in timesteps)
 cfg["experiment"]["write_interval"] = 100
 cfg["experiment"]["checkpoint_interval"] = 1000
-cfg["experiment"]["directory"] = "runs/1201"
-cfg["experiment"]["experiment_name"] = "DDPG0.1"
+cfg["experiment"]["directory"] = "runs/1204"
+cfg["experiment"]["experiment_name"] = "DDPG0.5"
 
 agent = DDPG(models=models,
              memory=memory,
