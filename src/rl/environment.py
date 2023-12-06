@@ -20,9 +20,8 @@ State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
 INITIAL_POSE = [0.973249, 0, 0, -0.2297529, 0.15, -0.15, 0.6]  # Top down view
-MAX_STEPS = 12
-GOAL_THRESHOLD = 0.04
-END_GOAL_THRESHOLD = 0.01
+MAX_STEPS = 7
+GOAL_THRESHOLD = 0.03
 # COLLISION_RADIUS = 0.05    # 5cm
 ACTION_TRANS_SACLE = 0.05 # 5cm
 PREGRASP_X = 0.0
