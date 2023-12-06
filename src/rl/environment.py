@@ -222,10 +222,6 @@ class Env(gym.Env):
 
     def calc_reward(self):
         rw = (self.init_pos_distance - self.curr_pos_distance) / self.init_pos_distance + (self.init_quat_distance - self.curr_quat_distance) / self.init_quat_distance + ALPHA*(self.init_num_points - self.curr_num_points) / self.init_num_points
-
-        if self.done == True:
-            rw += 5.0
-
         print(rw)
         return rw
 
