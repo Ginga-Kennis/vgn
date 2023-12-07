@@ -213,6 +213,7 @@ class Env(gym.Env):
             vis.draw_points(np.asarray(pc.points))
             vis.draw_grasp(grasp, score, self.sim.gripper.finger_depth)
         
+        # self.sim.execute_grasp(grasp,allow_contact=True)
         return T_world_pregrasp
     
     def sfs(self,q,t,n):

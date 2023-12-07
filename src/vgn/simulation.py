@@ -27,6 +27,7 @@ class ClutterRemovalSim(object):
         self.rng = np.random.RandomState(seed) if seed else np.random
         self.world = btsim.BtWorld(self.gui)
         self.gripper = Gripper(self.world)
+        self.ur_gripper = RobotiqGripper(self.world)
         self.size = 6 * self.gripper.finger_depth
         intrinsic = CameraIntrinsic(640, 480, 540.0, 540.0, 320.0, 240.0)
         self.camera = self.world.add_camera(intrinsic, 0.1, 2.0)
@@ -184,6 +185,8 @@ class ClutterRemovalSim(object):
             T_grasp_retreat = Transform(Rotation.identity(), [0.0, 0.0, -0.1])
             T_world_retreat = T_world_grasp * T_grasp_retreat
 
+        # self.ur_gripper.reset(T_world_grasp)
+        # print("LOAD ROBOTIQ GRIPPER")
         self.gripper.reset(T_world_pregrasp)
 
         if self.gripper.detect_contact():
@@ -347,3 +350,19 @@ class Gripper(object):
     def read(self):
         width = self.joint1.get_position() + self.joint2.get_position()
         return width
+
+
+class RobotiqGripper(object):
+    """Simulated robotiq hand."""
+
+    def __init__(self, world):
+        self.world = world
+        self.urdf_path = Path("data/urdfs/ur/handeye.urdf")
+
+        self.T_body_tcp = Transform(Rotation.from_quat([ 0.5, -0.5, -0.5, -0.5 ]), [0.0, 0.21, 0.0])
+        self.T_tcp_body = self.T_body_tcp.inverse()
+
+    def reset(self, T_world_tcp):
+        T_world_body = T_world_tcp * self.T_tcp_body
+        self.body = self.world.load_urdf(self.urdf_path, T_world_body)
+        self.body.set_pose(T_world_body)  # sets the position of the COM, not URDF link
