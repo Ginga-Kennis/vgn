@@ -24,9 +24,11 @@ MAX_STEPS = 7
 GOAL_THRESHOLD = 0.03
 # COLLISION_RADIUS = 0.05    # 5cm
 ACTION_TRANS_SACLE = 0.05 # 5cm
-PREGRASP_X = 0.0
+PREGRASP_X = 0.08
+PREGRASP_Y = 0.035
 PREGRASP_Z = -0.15
-RVIZ = False
+
+VISUALIZE = True
 ALPHA = 0.5
 
 # VOXEL SPACE PARAMS
@@ -60,8 +62,8 @@ class Env(gym.Env):
 
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(7,), dtype=np.float32)
 
-        # rviz visuzlizer
-        if RVIZ == True:
+        # VISUALIZE visuzlizer
+        if VISUALIZE == True:
             rospy.init_node("sim_grasp", anonymous=True)
             self.camposevisualizer = CamposeVisualizer()
 
@@ -106,9 +108,10 @@ class Env(gym.Env):
             num_objects = np.random.randint(1,5)
             self.sim.reset(num_objects)
             self.voxel_space.reset()
-            if RVIZ == True:
+            if VISUALIZE == True:
                 vis.clear()
                 vis.draw_workspace(self.sim.size)
+                self.camposevisualizer.reset()
 
 
             # 2 : get goal pose
@@ -116,17 +119,16 @@ class Env(gym.Env):
 
             if goal_pose != False:
                 self.goal_pose = np.array(from_matrix(goal_pose.as_matrix()))
+                if VISUALIZE == True:
+                    self.camposevisualizer.publish_target_campose(self.goal_pose)
                 break
-        
-        if RVIZ == True:
-            self.camposevisualizer.reset()
 
 
 
         # 3 : set curr_pose to Initial pose
         self.curr_pose = np.array(INITIAL_POSE)
-        if RVIZ == True:
-            self.camposevisualizer.publish(self.curr_pose)
+        if VISUALIZE == True:
+            self.camposevisualizer.publish_traj_campose(self.curr_pose)
 
 
         # 4 : SfS
@@ -159,8 +161,8 @@ class Env(gym.Env):
         
         # 2 : set current_pose (curr_pose + action)
         self._get_curr_pose(action)
-        if RVIZ == True:
-            self.camposevisualizer.publish(self.curr_pose)
+        if VISUALIZE == True:
+            self.camposevisualizer.publish_traj_campose(self.curr_pose)
 
         # 3 : SfS
         self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
@@ -205,10 +207,10 @@ class Env(gym.Env):
         
         
         T_world_grasp = grasp.pose
-        T_grasp_pregrasp = Transform(Rotation.identity(), [PREGRASP_X, 0.00, PREGRASP_Z])
+        T_grasp_pregrasp = Transform(Rotation.identity(), [PREGRASP_X, PREGRASP_Y, PREGRASP_Z])
         T_world_pregrasp = T_world_grasp * T_grasp_pregrasp
-
-        if RVIZ == True:
+        
+        if VISUALIZE == True:
             vis.draw_tsdf(tsdf.get_grid().squeeze(), tsdf.voxel_size)
             vis.draw_points(np.asarray(pc.points))
             vis.draw_grasp(grasp, score, self.sim.gripper.finger_depth)
