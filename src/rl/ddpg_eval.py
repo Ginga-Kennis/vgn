@@ -17,21 +17,21 @@ class Actor(DeterministicMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         DeterministicMixin.__init__(self, clip_actions)
 
-        self.feature_extractor = nn.Sequential(nn.Conv3d(1, 16, kernel_size=5, stride=2, padding=2),
-                                       nn.ReLU(),
-                                       nn.Conv3d(16, 32, kernel_size=3, stride=2, padding=1),
-                                       nn.ReLU(),
-                                       nn.Conv3d(32, 64, kernel_size=3, stride=2, padding=1),
-                                       nn.ReLU(),
-                                       nn.Flatten(),
-                                       nn.Linear(8000,512),
-                                       nn.ReLU(),
-                                       nn.Linear(512,16),
-                                       nn.Tanh())
+        self.feature_extractor = nn.Sequential(nn.Conv3d(1, 8, kernel_size=5, stride=2, padding=2),
+                                               nn.ReLU(),
+                                               nn.MaxPool3d(4,stride=2),
+                                               nn.Conv3d(8, 16, kernel_size=3, stride=2, padding=1),
+                                               nn.ReLU(),
+                                               nn.MaxPool3d(4,stride=2),
+                                               nn.Conv3d(16, 32, kernel_size=3, stride=2, padding=1),
+                                               nn.ReLU(),
+                                               nn.Flatten())
         
-        self.net = nn.Sequential(nn.Linear(28,128),
+        self.net = nn.Sequential(nn.Linear(46,256),
                                  nn.ReLU(),
-                                 nn.Linear(128,6),
+                                 nn.Linear(256,128),
+                                 nn.ReLU(),
+                                 nn.Linear(128,7),
                                  nn.Tanh())
 
     def compute(self, inputs, role):
@@ -50,21 +50,21 @@ class Critic(DeterministicMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         DeterministicMixin.__init__(self, clip_actions)
 
-        self.feature_extractor = nn.Sequential(nn.Conv3d(1, 16, kernel_size=5, stride=2, padding=2),
-                                       nn.ReLU(),
-                                       nn.Conv3d(16, 32, kernel_size=3, stride=2, padding=1),
-                                       nn.ReLU(),
-                                       nn.Conv3d(32, 64, kernel_size=3, stride=2, padding=1),
-                                       nn.ReLU(),
-                                       nn.Flatten(),
-                                       nn.Linear(8000,512),
-                                       nn.ReLU(),
-                                       nn.Linear(512,16),
-                                       nn.Tanh())
+        self.feature_extractor = nn.Sequential(nn.Conv3d(1, 8, kernel_size=5, stride=2, padding=2),
+                                               nn.ReLU(),
+                                               nn.MaxPool3d(4,stride=2),
+                                               nn.Conv3d(8, 16, kernel_size=3, stride=2, padding=1),
+                                               nn.ReLU(),
+                                               nn.MaxPool3d(4,stride=2),
+                                               nn.Conv3d(16, 32, kernel_size=3, stride=2, padding=1),
+                                               nn.ReLU(),
+                                               nn.Flatten())
         
-        self.net = nn.Sequential(nn.Linear(34,128),
+        self.net = nn.Sequential(nn.Linear(53,128),
                                  nn.ReLU(),
-                                 nn.Linear(128,1))
+                                 nn.Linear(128,64),
+                                 nn.ReLU(),
+                                 nn.Linear(64,1))
 
     def compute(self, inputs, role):
         states = inputs["states"]
@@ -127,7 +127,7 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 # start training
 # trainer.train()
 
-agent.load("runs/1121/DDPG1/checkpoints/agent_371000.pt")
+agent.load("runs/DDPG/1.0/checkpoints/best_agent.pt")
 
 # start evaluation
 trainer.eval()
