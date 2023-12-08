@@ -83,8 +83,6 @@ env = wrap_env(env)
 
 device = env.device
 
-memory = RandomMemory(memory_size=10, num_envs=env.num_envs, device=device)
-
 models = {}
 models["policy"] = Actor(env.observation_space, env.action_space, device)
 models["target_policy"] = Actor(env.observation_space, env.action_space, device)
@@ -95,25 +93,18 @@ models["target_critic"] = Critic(env.observation_space, env.action_space, device
 # configure and instantiate the agent (visit its documentation to see all the options)
 # https://skrl.readthedocs.io/en/latest/api/agents/ddpg.html#configuration-and-hyperparameters
 cfg = DDPG_DEFAULT_CONFIG.copy()
-cfg["exploration"]["noise"] = OrnsteinUhlenbeckNoise(theta=0.15, sigma=0.1, base_scale=0.5, device=device)
-cfg["gradient_steps"] = 1
-cfg["batch_size"] = 1
-cfg["discount_factor"] = 0.99
-cfg["polyak"] = 0.005
-cfg["actor_learning_rate"] = 5e-4
-cfg["critic_learning_rate"] = 5e-4
-cfg["random_timesteps"] = 80
-cfg["learning_starts"] = 80
+cfg["random_timesteps"] = 0
+cfg["learning_starts"] = 0
 cfg["state_preprocessor"] = RunningStandardScaler
 cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
 # logging to TensorBoard and write checkpoints (in timesteps)
-cfg["experiment"]["write_interval"] = 40
-cfg["experiment"]["checkpoint_interval"] = 400
-cfg["experiment"]["directory"] = "runs/1116"
-cfg["experiment"]["experiment_name"] = "1441DDPG_EVAL"
+cfg["experiment"]["write_interval"] = 10
+cfg["experiment"]["checkpoint_interval"] = 0
+cfg["experiment"]["directory"] = "runs/eval"
+cfg["experiment"]["experiment_name"] = "2.0"
 
 agent = DDPG(models=models,
-             memory=memory,
+             memory=None,
              cfg=cfg,
              observation_space=env.observation_space,
              action_space=env.action_space,
@@ -121,13 +112,13 @@ agent = DDPG(models=models,
 
 
 # configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 10000000, "headless": True}
+cfg_trainer = {"timesteps": 1000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 # start training
 # trainer.train()
 
-agent.load("runs/DDPG/1.0/checkpoints/best_agent.pt")
+agent.load("runs/DDPG/1.5/checkpoints/best_agent.pt")
 
 # start evaluation
 trainer.eval()
