@@ -10,7 +10,7 @@ from skrl.resources.noises.torch import OrnsteinUhlenbeckNoise
 from skrl.resources.preprocessors.torch import RunningStandardScaler
 from skrl.trainers.torch import SequentialTrainer
 
-from environment import Env
+from env_moveit import Env
 
 class Actor(DeterministicMixin, Model):
     def __init__(self, observation_space, action_space, device, clip_actions=True):
