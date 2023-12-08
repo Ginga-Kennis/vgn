@@ -185,8 +185,6 @@ class ClutterRemovalSim(object):
             T_grasp_retreat = Transform(Rotation.identity(), [0.0, 0.0, -0.1])
             T_world_retreat = T_world_grasp * T_grasp_retreat
 
-        # self.ur_gripper.reset(T_world_grasp)
-        # print("LOAD ROBOTIQ GRIPPER")
         self.gripper.reset(T_world_pregrasp)
 
         if self.gripper.detect_contact():
@@ -212,6 +210,47 @@ class ClutterRemovalSim(object):
             self.remove_and_wait()
 
         return result
+
+    def execute_ur_grasp(self, grasp, remove=True, allow_contact=False):
+        T_world_grasp = grasp.pose
+        T_grasp_pregrasp = Transform(Rotation.identity(), [0.0, 0.0, -0.05])
+        T_world_pregrasp = T_world_grasp * T_grasp_pregrasp
+
+        approach = T_world_grasp.rotation.as_matrix()[:, 2]
+        angle = np.arccos(np.dot(approach, np.r_[0.0, 0.0, -1.0]))
+        if angle > np.pi / 3.0:
+            # side grasp, lift the object after establishing a grasp
+            T_grasp_pregrasp_world = Transform(Rotation.identity(), [0.0, 0.0, 0.1])
+            T_world_retreat = T_grasp_pregrasp_world * T_world_grasp
+        else:
+            T_grasp_retreat = Transform(Rotation.identity(), [0.0, 0.0, -0.1])
+            T_world_retreat = T_world_grasp * T_grasp_retreat
+
+        self.ur_gripper.reset(T_world_pregrasp)
+
+        # if self.ur_gripper.detect_contact():
+        #     result = Label.FAILURE, self.gripper.max_opening_width
+        # else:
+        #     self.ur_gripper.move_tcp_xyz(T_world_grasp, abort_on_contact=True)
+        #     if self.ur_gripper.detect_contact() and not allow_contact:
+        #         result = Label.FAILURE, self.gripper.max_opening_width
+        #     else:
+        #         self.ur_gripper.move(0.0)
+        #         self.ur_gripper.move_tcp_xyz(T_world_retreat, abort_on_contact=False)
+        #         if self.check_success(self.gripper):
+        #             result = Label.SUCCESS, self.ur_gripper.read()
+        #             if remove:
+        #                 contacts = self.world.get_contacts(self.ur_gripper.body)
+        #                 self.world.remove_body(contacts[0].bodyB)
+        #         else:
+        #             result = Label.FAILURE, self.ur_gripper.max_opening_width
+
+        # self.world.remove_body(self.ur_gripper.body)
+
+        # if remove:
+        #     self.remove_and_wait()
+
+        # return result
 
     def remove_and_wait(self):
         # wait for objects to rest while removing bodies that fell outside the workspace
@@ -366,3 +405,9 @@ class RobotiqGripper(object):
         T_world_body = T_world_tcp * self.T_tcp_body
         self.body = self.world.load_urdf(self.urdf_path, T_world_body)
         self.body.set_pose(T_world_body)  # sets the position of the COM, not URDF link
+
+    def detect_contact(self, threshold=5):
+        if self.world.get_contacts(self.body):
+            return True
+        else:
+            return False

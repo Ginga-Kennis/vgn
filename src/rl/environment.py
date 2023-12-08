@@ -29,7 +29,7 @@ PREGRASP_X = 0.0
 PREGRASP_Y = 0.0
 PREGRASP_Z = -0.05
 
-PRECAMPOSE_X = 0.08
+PRECAMPOSE_X = -0.08
 PRECAMPOSE_Y = 0.035
 PRECAMPOSE_Z = -0.15
 
@@ -225,7 +225,7 @@ class Env(gym.Env):
             vis.draw_grasp(grasp, score, self.sim.gripper.finger_depth)
             vis.draw_pregrasp(pregrasp, score, self.sim.gripper.finger_depth)
         
-        # self.sim.execute_grasp(grasp,allow_contact=True)
+        self.sim.execute_ur_grasp(grasp,allow_contact=True)
         return T_world_precampose
     
     def sfs(self,q,t,n):
