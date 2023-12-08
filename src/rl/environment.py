@@ -1,5 +1,6 @@
 import rospy
 import collections
+import copy
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -23,9 +24,14 @@ INITIAL_POSE = [-0.688191, -0.688191, -0.1624598, 0.1624598, 0.15, -0.15, 0.6]  
 MAX_STEPS = 10
 GOAL_THRESHOLD = 0.01
 ACTION_TRANS_SACLE = 0.05 # 5cm
-PREGRASP_X = 0.08
-PREGRASP_Y = 0.035
-PREGRASP_Z = -0.15
+
+PREGRASP_X = 0.0
+PREGRASP_Y = 0.0
+PREGRASP_Z = -0.05
+
+PRECAMPOSE_X = 0.08
+PRECAMPOSE_Y = 0.035
+PRECAMPOSE_Z = -0.15
 
 VISUALIZE = True
 ALPHA = 2.0
@@ -204,7 +210,12 @@ class Env(gym.Env):
         
         T_world_grasp = grasp.pose
         T_grasp_pregrasp = Transform(Rotation.identity(), [PREGRASP_X, PREGRASP_Y, PREGRASP_Z])
+        T_grasp_precampose = Transform(Rotation.identity(), [PRECAMPOSE_X, PRECAMPOSE_Y, PRECAMPOSE_Z])
         T_world_pregrasp = T_world_grasp * T_grasp_pregrasp
+        T_world_precampose = T_world_grasp * T_grasp_precampose
+
+        pregrasp = copy.deepcopy(grasp)
+        pregrasp.pose = T_world_pregrasp
         
         if VISUALIZE == True:
             vis.clear()
@@ -212,9 +223,10 @@ class Env(gym.Env):
             vis.draw_tsdf(tsdf.get_grid().squeeze(), tsdf.voxel_size)
             vis.draw_points(np.asarray(pc.points))
             vis.draw_grasp(grasp, score, self.sim.gripper.finger_depth)
+            vis.draw_pregrasp(pregrasp, score, self.sim.gripper.finger_depth)
         
         # self.sim.execute_grasp(grasp,allow_contact=True)
-        return T_world_pregrasp
+        return T_world_precampose
     
     def sfs(self,q,t,n):
         rgb_image, _, _ = self.sim.camera2.get_image(q,t)

@@ -85,6 +85,45 @@ def draw_grasp(grasp, score, finger_depth):
 
     pubs["grasp"].publish(MarkerArray(markers=markers))
 
+def draw_pregrasp(grasp, score, finger_depth):
+    radius = 0.1 * finger_depth
+    w, d = grasp.width, finger_depth
+    color = cmap(float(score))
+
+    markers = []
+
+    # left finger
+    pose = grasp.pose * Transform(Rotation.identity(), [0.0, -w / 2, d / 2])
+    scale = [radius, radius, d]
+    msg = _create_marker_msg(Marker.CYLINDER, "task", pose, scale, color)
+    msg.id = 0
+    markers.append(msg)
+
+    # right finger
+    pose = grasp.pose * Transform(Rotation.identity(), [0.0, w / 2, d / 2])
+    scale = [radius, radius, d]
+    msg = _create_marker_msg(Marker.CYLINDER, "task", pose, scale, color)
+    msg.id = 1
+    markers.append(msg)
+
+    # wrist
+    pose = grasp.pose * Transform(Rotation.identity(), [0.0, 0.0, -d / 4])
+    scale = [radius, radius, d / 2]
+    msg = _create_marker_msg(Marker.CYLINDER, "task", pose, scale, color)
+    msg.id = 2
+    markers.append(msg)
+
+    # palm
+    pose = grasp.pose * Transform(
+        Rotation.from_rotvec(np.pi / 2 * np.r_[1.0, 0.0, 0.0]), [0.0, 0.0, 0.0]
+    )
+    scale = [radius, radius, w]
+    msg = _create_marker_msg(Marker.CYLINDER, "task", pose, scale, color)
+    msg.id = 3
+    markers.append(msg)
+
+    pubs["pregrasp"].publish(MarkerArray(markers=markers))
+
 
 def draw_grasps(grasps, scores, finger_depth):
     markers = []
@@ -102,6 +141,7 @@ def clear():
     pubs["points"].publish(ros_utils.to_cloud_msg(np.array([]), frame="task"))
     clear_quality()
     pubs["grasp"].publish(DELETE_MARKER_ARRAY_MSG)
+    pubs["pregrasp"].publish(DELETE_MARKER_ARRAY_MSG)
     clear_grasps()
     pubs["debug"].publish(ros_utils.to_cloud_msg(np.array([]), frame="task"))
 
@@ -121,6 +161,7 @@ def _create_publishers():
     pubs["points"] = Publisher("/points", PointCloud2, queue_size=1, latch=True)
     pubs["quality"] = Publisher("/quality", PointCloud2, queue_size=1, latch=True)
     pubs["grasp"] = Publisher("/grasp", MarkerArray, queue_size=1, latch=True)
+    pubs["pregrasp"] = Publisher("/pregrasp", MarkerArray, queue_size=1, latch=True)
     pubs["grasps"] = Publisher("/grasps", MarkerArray, queue_size=1, latch=True)
     pubs["debug"] = Publisher("/debug", PointCloud2, queue_size=1, latch=True)
     return pubs
