@@ -83,7 +83,7 @@ env = wrap_env(env)
 
 device = env.device
 
-memory = RandomMemory(memory_size=12000, num_envs=env.num_envs, device=device)
+memory = RandomMemory(memory_size=8000, num_envs=env.num_envs, device=device)
 
 models = {}
 models["policy"] = Actor(env.observation_space, env.action_space, device)
@@ -109,8 +109,8 @@ cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": dev
 # logging to TensorBoard and write checkpoints (in timesteps)
 cfg["experiment"]["write_interval"] = 100
 cfg["experiment"]["checkpoint_interval"] = 1000
-cfg["experiment"]["directory"] = "runs/1204"
-cfg["experiment"]["experiment_name"] = "DDPG0.5"
+cfg["experiment"]["directory"] = "runs/train"
+cfg["experiment"]["experiment_name"] = "1.5"
 
 agent = DDPG(models=models,
              memory=memory,
