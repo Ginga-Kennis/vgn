@@ -116,10 +116,12 @@ class Env(gym.Env):
             self.voxel_space.reset()
 
             # 2 : get goal pose
-            self.grasp, self.pregrasp, goal_pose = self.get_goalpose()
+            poses = self.get_goalpose()
 
-            if goal_pose != False:
-                self.goal_pose = np.array(from_matrix(goal_pose.as_matrix()))
+            if poses != False:
+                self.grasp = poses[0]
+                self.pregrasp = poses[1]
+                self.goal_pose = np.array(from_matrix(poses[2].as_matrix()))
                 if VISUALIZE == True:
                     self.camposevisualizer.reset()
                     self.camposevisualizer.publish_target_campose(self.goal_pose)
