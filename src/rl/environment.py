@@ -20,16 +20,15 @@ State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
 INITIAL_POSE = [0.973249, 0, 0, -0.2297529, 0.15, -0.15, 0.6]  # Top down view
-MAX_STEPS = 7
-GOAL_THRESHOLD = 0.03
-# COLLISION_RADIUS = 0.05    # 5cm
+MAX_STEPS = 10
+GOAL_THRESHOLD = 0.01
 ACTION_TRANS_SACLE = 0.05 # 5cm
 PREGRASP_X = 0.08
 PREGRASP_Y = 0.035
 PREGRASP_Z = -0.15
 
 VISUALIZE = True
-ALPHA = 0.5
+ALPHA = 2.0
 
 # VOXEL SPACE PARAMS
 X_RANGE = [0.0,0.3]
@@ -48,7 +47,13 @@ class Env(gym.Env):
         self.goal_threshold = GOAL_THRESHOLD 
          
         # Initialize (Simulation, VoxelSpace,VGN)
-        self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=True)
+        if VISUALIZE == True:
+            rospy.init_node("sim_grasp", anonymous=True)
+            self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=True)
+            self.camposevisualizer = CamposeVisualizer(MAX_STEPS)
+        else:
+            self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=False)
+        
         self.voxel_space = VoxelSpace(X_RANGE,Y_RANGE,Z_RANGE,VOXEL_SIZE,K,NEAR,TABLE_HEIGHT)
         self.vgn = VGN(model_path=Path("data/models/vgn_conv.pth"),rviz=False)
 
@@ -61,11 +66,6 @@ class Env(gym.Env):
         )
 
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(7,), dtype=np.float32)
-
-        # VISUALIZE visuzlizer
-        if VISUALIZE == True:
-            rospy.init_node("sim_grasp", anonymous=True)
-            self.camposevisualizer = CamposeVisualizer()
 
 
     def _get_obs(self):
@@ -105,14 +105,9 @@ class Env(gym.Env):
         # reset till find valid grasp pose
         while True:
             # 1 : Reset (Simulation, VoxelSpace)
-            num_objects = np.random.randint(1,5)
+            num_objects = np.random.randint(1,6)
             self.sim.reset(num_objects)
             self.voxel_space.reset()
-            if VISUALIZE == True:
-                vis.clear()
-                vis.draw_workspace(self.sim.size)
-                self.camposevisualizer.reset()
-
 
             # 2 : get goal pose
             goal_pose = self.get_goalpose()
@@ -120,6 +115,7 @@ class Env(gym.Env):
             if goal_pose != False:
                 self.goal_pose = np.array(from_matrix(goal_pose.as_matrix()))
                 if VISUALIZE == True:
+                    self.camposevisualizer.reset()
                     self.camposevisualizer.publish_target_campose(self.goal_pose)
                 break
 
@@ -211,6 +207,8 @@ class Env(gym.Env):
         T_world_pregrasp = T_world_grasp * T_grasp_pregrasp
         
         if VISUALIZE == True:
+            vis.clear()
+            vis.draw_workspace(self.sim.size)
             vis.draw_tsdf(tsdf.get_grid().squeeze(), tsdf.voxel_size)
             vis.draw_points(np.asarray(pc.points))
             vis.draw_grasp(grasp, score, self.sim.gripper.finger_depth)

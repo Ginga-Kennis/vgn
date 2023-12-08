@@ -9,7 +9,7 @@ BLUE = [0, 0.6, 1.0]
 GREY = [0.9, 0.9, 0.9]
 
 class CamposeVisualizer:
-    def __init__(self):
+    def __init__(self,num_steps):
         # 固有値（共通）
         self.base_frame = "task"
         self.scale = [0.002, 0.0, 0.0]
@@ -24,6 +24,9 @@ class CamposeVisualizer:
         # marker array
         self.target_campose = []
         self.traj_campose = []
+
+        # number of steps in traj
+        self.num_steps = num_steps
         
         self.create_campose_publisher()
         self.reset()
@@ -47,7 +50,7 @@ class CamposeVisualizer:
 
     def reset(self):
         self.target_campose = [Marker(action=Marker.DELETE, ns="", id=0)]
-        self.traj_campose = [Marker(action=Marker.DELETE, ns="", id=i) for i in range(10)]
+        self.traj_campose = [Marker(action=Marker.DELETE, ns="", id=i) for i in range(self.num_steps)]
         self.id = 0
 
         self.target_campose_pub.publish(self.target_campose)
