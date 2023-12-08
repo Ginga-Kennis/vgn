@@ -116,7 +116,7 @@ class Env(gym.Env):
             self.voxel_space.reset()
 
             # 2 : get goal pose
-            goal_pose = self.get_goalpose()
+            self.grasp, self.pregrasp, goal_pose = self.get_goalpose()
 
             if goal_pose != False:
                 self.goal_pose = np.array(from_matrix(goal_pose.as_matrix()))
@@ -180,6 +180,10 @@ class Env(gym.Env):
         self.truncated = self.num_steps > self.max_steps
         # visualize_pcd(self.pointcloud)
 
+        if VISUALIZE == True:
+            if self.done == True or self.truncated == True:
+                self.sim.execute_grasp(self.grasp,allow_contact=True)
+
         # 5 : calculate reward
         reward = self.calc_reward()
 
@@ -225,8 +229,7 @@ class Env(gym.Env):
             vis.draw_grasp(grasp, score, self.sim.gripper.finger_depth)
             vis.draw_pregrasp(pregrasp, score, self.sim.gripper.finger_depth)
         
-        self.sim.execute_ur_grasp(grasp,allow_contact=True)
-        return T_world_precampose
+        return grasp, pregrasp, T_world_precampose
     
     def sfs(self,q,t,n):
         rgb_image, _, _ = self.sim.camera2.get_image(q,t)
