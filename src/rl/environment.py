@@ -19,7 +19,7 @@ from visualizer import CamposeVisualizer
 State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
-INITIAL_POSE = [0.973249, 0, 0, -0.2297529, 0.15, -0.15, 0.6]  # Top down view
+INITIAL_POSE = [-0.688191, -0.688191, -0.1624598, 0.1624598, 0.15, -0.15, 0.6]  # Top down view
 MAX_STEPS = 10
 GOAL_THRESHOLD = 0.01
 ACTION_TRANS_SACLE = 0.05 # 5cm
