@@ -42,19 +42,20 @@ class CamposeVisualizer:
         self.target_campose_pub.publish(MarkerArray(self.target_campose))
 
     def publish_traj_campose(self, pose):
-        self.id += 1
         pose_msg = Transform(Rotation.from_quat([pose[0],pose[1],pose[2],pose[3]]),pose[4:])
         marker = create_view_marker(self.base_frame, pose_msg,self.scale,self.color,self.intrinsic,self.near,self.far,ns="",id=self.id)
         self.traj_campose.append(marker) 
         self.traj_campose_pub.publish(MarkerArray(self.traj_campose))
+        self.id += 1
 
     def reset(self):
         self.target_campose = [Marker(action=Marker.DELETE, ns="", id=0)]
-        self.traj_campose = [Marker(action=Marker.DELETE, ns="", id=i) for i in range(self.num_steps)]
-        self.id = 0
+        self.traj_campose = [Marker(action=Marker.DELETE, ns="", id=i) for i in range(self.num_steps+2)]
 
         self.target_campose_pub.publish(self.target_campose)
         self.traj_campose_pub.publish(self.traj_campose)
+
+        self.id = 0
 
 
 
