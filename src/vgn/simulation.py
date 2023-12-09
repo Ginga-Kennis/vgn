@@ -119,8 +119,8 @@ class ClutterRemovalSim(object):
         while self.num_objects < object_count and attempts < max_attempts:
             self.save_state()
             urdf = self.rng.choice(self.object_urdfs)
-            x = self.rng.uniform(0.04, 0.26)
-            y = self.rng.uniform(0.04, 0.26)
+            x = self.rng.uniform(0.08, 0.22)
+            y = self.rng.uniform(0.08, 0.22)
             z = 1.0
             angle = self.rng.uniform(0.0, 2.0 * np.pi)
             rotation = Rotation.from_rotvec(angle * np.r_[0.0, 0.0, 1.0])

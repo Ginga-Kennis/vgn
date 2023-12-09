@@ -71,12 +71,12 @@ class UR5eCommander(object):
         else:
             print("ABORTED PLAN")
             success = False
-            
+        
         self.move_group.clear_pose_targets()
         return success
     
     def goto_initial_pose(self):
-        self.goto_joints([1.5708, -0.523599, -1.74533, -1.5708, 1.5708, 0.0])
+        self.goto_joints([3.49066, -2.0944, 1.5708, -1.0472, -1.5708, -1.0472])
     
 class GripperController(object):
     def __init__(self):

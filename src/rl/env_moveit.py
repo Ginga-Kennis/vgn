@@ -34,7 +34,7 @@ PREGRASP_Z = -0.05
 
 PRECAMPOSE_X = 0.08
 PRECAMPOSE_Y = -0.035
-PRECAMPOSE_Z = -0.15
+PRECAMPOSE_Z = -0.165
 
 VISUALIZE = True
 ALPHA = 2.0
@@ -44,6 +44,14 @@ X_RANGE = [0.0,0.3]
 Y_RANGE = [0.0,0.3]
 Z_RANGE = [0.0,0.3]
 VOXEL_SIZE = [0.0075,0.0075,0.0075]
+K = [[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]
+NEAR = 0.05
+TABLE_HEIGHT = 0.05
+
+X_RANGE = [0.0,0.3]
+Y_RANGE = [0.0,0.3]
+Z_RANGE = [0.0,0.3]
+HIGH_RES_VOXEL_SIZE = [0.003,0.003,0.003]
 K = [[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]
 NEAR = 0.05
 TABLE_HEIGHT = 0.05
@@ -73,6 +81,7 @@ class Env(gym.Env):
             self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=False)
         
         self.voxel_space = VoxelSpace(X_RANGE,Y_RANGE,Z_RANGE,VOXEL_SIZE,K,NEAR,TABLE_HEIGHT)
+        self.high_res_voxel_space = VoxelSpace(X_RANGE,Y_RANGE,Z_RANGE,HIGH_RES_VOXEL_SIZE,K,NEAR,TABLE_HEIGHT)
         self.vgn = VGN(model_path=Path("data/models/vgn_conv.pth"),rviz=False)
 
         # gym environment definition
@@ -113,7 +122,7 @@ class Env(gym.Env):
 
 
     def _get_info(self):
-        return {"p_dist" : self.curr_pos_distance, "o_dist" : self.curr_quat_distance, "threshold" : self.goal_threshold,"num_points" : self.curr_num_points ,"goal" : self.done}
+        return {"p_dist" : self.curr_pos_distance, "o_dist" : self.curr_quat_distance, "num_points" : self.high_res_voxel_space.num_points}
         
         
     def reset(self,seed=None, options=None):
@@ -124,9 +133,10 @@ class Env(gym.Env):
         # reset till find valid grasp pose
         while True:
             # 1 : Reset (Simulation, VoxelSpace)
-            num_objects = np.random.randint(1,6)
+            num_objects = 3
             self.sim.reset(num_objects)
             self.voxel_space.reset()
+            self.high_res_voxel_space.reset()
 
             # 2 : get goal pose
             poses = self.get_goalpose()
@@ -152,6 +162,7 @@ class Env(gym.Env):
 
         # 4 : SfS
         self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
+        visualize_pcd(self.high_res_voxel_space.pointcloud)
 
         # 5 : set params
         self.init_num_points = self.voxel_space.num_points
@@ -196,11 +207,13 @@ class Env(gym.Env):
 
         self.done = (self.curr_pos_distance <= self.goal_threshold) and (self.curr_quat_distance <= self.goal_threshold)
         self.truncated = self.num_steps > self.max_steps
-        # visualize_pcd(self.pointcloud)
+        visualize_pcd(self.high_res_voxel_space.pointcloud)
 
         if VISUALIZE == True:
             if self.done == True or self.truncated == True:
                 self.move_to_waypoint(self.goal_pose)
+                self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
+                visualize_pcd(self.high_res_voxel_space.pointcloud)
                 self.sim.execute_grasp(self.grasp,allow_contact=True)
 
         # 5 : calculate reward
@@ -254,6 +267,7 @@ class Env(gym.Env):
         rgb_image, _, _ = self.sim.camera2.get_image(q,t)
         seg_image = get_segimage(rgb_image,n,save_image=False)
         self.voxel_space.sfs(seg_image,to_matrix(q, t))
+        self.high_res_voxel_space.sfs(seg_image,to_matrix(q, t))
 
     def move_to_waypoint(self,waypoint):
         T_task_waypoint = Transform.from_list(waypoint)

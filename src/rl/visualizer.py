@@ -6,7 +6,7 @@ from vgn.utils.transform import Transform,Rotation
 
 RED = [1.0, 0.0, 0.0]
 BLUE = [0, 0.6, 1.0]
-GREY = [0.9, 0.9, 0.9]
+GREEN = [0, 1.0, 0.0]
 
 class CamposeVisualizer:
     def __init__(self,num_steps):
@@ -19,7 +19,7 @@ class CamposeVisualizer:
 
         # target →　red, other　→　blue
         self.target_color = RED
-        self.color = BLUE
+        self.color = GREEN
 
         # marker array
         self.target_campose = []
