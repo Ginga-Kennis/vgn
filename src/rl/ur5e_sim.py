@@ -76,7 +76,7 @@ class UR5eCommander(object):
         return success
     
     def goto_initial_pose(self):
-        self.goto_joints([3.49066, -2.0944, 1.5708, -1.0472, -1.5708, -1.0472])
+        self.goto_joints([1.5708, -0.785398, -1.22173, -2.0944, 1.5708, 0.0])
     
 class GripperController(object):
     def __init__(self):

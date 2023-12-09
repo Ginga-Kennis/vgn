@@ -25,7 +25,7 @@ State = collections.namedtuple("State", ["tsdf", "pc"])
 # ENVIRONMENT PARAMS
 INITIAL_POSE = [-0.688191, -0.688191, -0.1624598, 0.1624598, 0.15, -0.15, 0.6]  # Top down view
 MAX_STEPS = 10
-GOAL_THRESHOLD = 0.01
+GOAL_THRESHOLD = 0.06
 ACTION_TRANS_SACLE = 0.05 # 5cm
 
 PREGRASP_X = 0.0
@@ -56,7 +56,7 @@ K = [[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]
 NEAR = 0.05
 TABLE_HEIGHT = 0.05
 
-T_base_task = Transform(Rotation.identity(), [0.0, 0.4, 0.0])
+T_base_task = Transform(Rotation.identity(), [-0.05, 0.35, 0.0])
 
 
 class Env(gym.Env):
@@ -122,7 +122,7 @@ class Env(gym.Env):
 
 
     def _get_info(self):
-        return {"p_dist" : self.curr_pos_distance, "o_dist" : self.curr_quat_distance, "num_points" : self.high_res_voxel_space.num_points}
+        return {"num_points" : self.high_res_voxel_space.num_points}
         
         
     def reset(self,seed=None, options=None):
@@ -205,7 +205,7 @@ class Env(gym.Env):
 
         self.curr_pos_distance, self.curr_quat_distance = calc_distance(self.curr_pose,self.goal_pose)
 
-        self.done = (self.curr_pos_distance <= self.goal_threshold) and (self.curr_quat_distance <= self.goal_threshold)
+        self.done = (self.curr_pos_distance <= self.goal_threshold)
         self.truncated = self.num_steps > self.max_steps
         visualize_pcd(self.high_res_voxel_space.pointcloud)
 
