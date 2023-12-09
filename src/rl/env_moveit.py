@@ -59,8 +59,6 @@ class Env(gym.Env):
         # Initialize params
         self.max_steps = MAX_STEPS
         self.goal_threshold = GOAL_THRESHOLD
-
-        # number of resets
         self.num_rests = 0 
          
         # Initialize (Simulation, VoxelSpace,VGN)
@@ -127,13 +125,10 @@ class Env(gym.Env):
     def reset(self,seed=None, options=None):
         super().reset(seed=seed)
 
-        # make experiment/round{i}/ directory
+        # MAKE LOG DIRECTORY
         self.num_rests += 1
         self.dir_path = f"experiment/round{self.num_rests}"
         os.mkdir(self.dir_path)
-
-        # reset num_steps
-        self.num_steps = 0
 
 
         # reset till find valid grasp pose
@@ -158,6 +153,9 @@ class Env(gym.Env):
                 break
 
 
+        # reset num_steps
+        self.num_steps = 0
+
 
         # 3 : set curr_pose to Initial pose
         self.curr_pose = np.array(INITIAL_POSE)
@@ -165,10 +163,10 @@ class Env(gym.Env):
             self.camposevisualizer.publish_traj_campose(self.curr_pose)
             success = self.move_to_waypoint(self.curr_pose)
 
-
-        # 4 : SfS
-        self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
-        visualize_pcd(self.high_res_voxel_space.pointcloud)
+        if success == True:
+            # 4 : SfS
+            self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
+            visualize_pcd(self.high_res_voxel_space.pointcloud)
 
         # 5 : set params
         self.init_num_points = self.voxel_space.num_points
@@ -201,9 +199,10 @@ class Env(gym.Env):
             self.camposevisualizer.publish_traj_campose(self.curr_pose)
             success = self.move_to_waypoint(self.curr_pose)
 
-        # 3 : SfS
-        self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
-        visualize_pcd(self.high_res_voxel_space.pointcloud)
+        if success == True:
+            # 3 : SfS
+            self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
+            visualize_pcd(self.high_res_voxel_space.pointcloud)
 
         # 4 : set parameters
         self.curr_num_points = self.voxel_space.num_points
