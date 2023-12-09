@@ -48,7 +48,7 @@ K = [[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]
 NEAR = 0.05
 TABLE_HEIGHT = 0.05
 
-T_base_task = Transform(Rotation.identity(), [-0.15, 0.4, 0.0])
+T_base_task = Transform(Rotation.identity(), [0.0, 0.4, 0.0])
 
 
 class Env(gym.Env):
@@ -60,7 +60,7 @@ class Env(gym.Env):
         # Initialize (Simulation, VoxelSpace,VGN)
         if VISUALIZE == True:
             rospy.init_node("sim_grasp", anonymous=True)
-            self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=True)
+            self.sim = ClutterRemovalSim(scene="packed", object_set="packed/test", gui=True)
             self.camposevisualizer = CamposeVisualizer(MAX_STEPS)
             # tf publisher
             self.tf_tree = ros_utils.TransformTree()
@@ -138,6 +138,7 @@ class Env(gym.Env):
                 if VISUALIZE == True:
                     self.camposevisualizer.reset()
                     self.camposevisualizer.publish_target_campose(self.goal_pose)
+                    self.ur5e_controller.goto_initial_pose()
                 break
 
 
@@ -199,6 +200,7 @@ class Env(gym.Env):
 
         if VISUALIZE == True:
             if self.done == True or self.truncated == True:
+                self.move_to_waypoint(self.goal_pose)
                 self.sim.execute_grasp(self.grasp,allow_contact=True)
 
         # 5 : calculate reward
