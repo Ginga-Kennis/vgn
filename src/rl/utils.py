@@ -32,7 +32,7 @@ def from_matrix(matrix):
     t = matrix[:3,3].tolist()
     return q+t
 
-def get_segimage(image,n,save_image=True):
+def get_segimage(image,path):
     """
     - input -
     image      : Rgb image(3 channel)
@@ -52,13 +52,9 @@ def get_segimage(image,n,save_image=True):
     threshold = 240
     ret, segmented_image = cv2.threshold(gray_image, threshold, 255, cv2.THRESH_BINARY)
 
-    # save gray image
-    if save_image == True:
-        if n == 0:
-            seg_image_name = f"./seg_image/initial.png"
-        else:
-            seg_image_name = f"./seg_image/view{n}.png"
-        cv2.imwrite(seg_image_name,segmented_image)
+    # save image
+    path = f"{path}.png"
+    cv2.imwrite(path,segmented_image)
 
     return segmented_image
 
@@ -72,6 +68,15 @@ def visualize_pcd(pointcloud):
     viewer.add_geometry(pcd)
     viewer.run()
     viewer.destroy_window()
+
+def save_pcd(pointcloud,path):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(pointcloud)
+    
+    # save pointcloud
+    path = f"{path}.pcd"
+    o3d.io.write_point_cloud(path,pcd)
+
 
 def calc_distance(pose1,pose2):
     """

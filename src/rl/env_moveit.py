@@ -1,6 +1,7 @@
 import rospy
 import collections
 import copy
+import os
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -44,17 +45,11 @@ X_RANGE = [0.0,0.3]
 Y_RANGE = [0.0,0.3]
 Z_RANGE = [0.0,0.3]
 VOXEL_SIZE = [0.0075,0.0075,0.0075]
-K = [[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]
-NEAR = 0.05
-TABLE_HEIGHT = 0.05
-
-X_RANGE = [0.0,0.3]
-Y_RANGE = [0.0,0.3]
-Z_RANGE = [0.0,0.3]
 HIGH_RES_VOXEL_SIZE = [0.003,0.003,0.003]
 K = [[540, 0.0, 320],[0.0, 540, 240],[0.0, 0.0, 1.0]]
 NEAR = 0.05
 TABLE_HEIGHT = 0.05
+
 
 T_base_task = Transform(Rotation.identity(), [-0.05, 0.35, 0.0])
 
@@ -63,18 +58,22 @@ class Env(gym.Env):
     def __init__(self):
         # Initialize params
         self.max_steps = MAX_STEPS
-        self.goal_threshold = GOAL_THRESHOLD 
+        self.goal_threshold = GOAL_THRESHOLD
+
+        # number of resets
+        self.num_rests = 0 
          
         # Initialize (Simulation, VoxelSpace,VGN)
         if VISUALIZE == True:
             rospy.init_node("sim_grasp", anonymous=True)
-            self.sim = ClutterRemovalSim(scene="packed", object_set="packed/test", gui=True)
-            self.camposevisualizer = CamposeVisualizer(MAX_STEPS)
+
             # tf publisher
             self.tf_tree = ros_utils.TransformTree()
             self.tf_tree.broadcast_static(T_base_task, "base_link", "task")
             rospy.sleep(1.0)
 
+            self.sim = ClutterRemovalSim(scene="packed", object_set="packed/test", gui=True, seed=42)
+            self.camposevisualizer = CamposeVisualizer(MAX_STEPS)
             self.ur5e_controller = UR5eCommander()
 
         else:
@@ -127,8 +126,15 @@ class Env(gym.Env):
         
     def reset(self,seed=None, options=None):
         super().reset(seed=seed)
+
+        # make experiment/round{i}/ directory
+        self.num_rests += 1
+        self.dir_path = f"experiment/round{self.num_rests}"
+        os.mkdir(self.dir_path)
+
         # reset num_steps
         self.num_steps = 0
+
 
         # reset till find valid grasp pose
         while True:
@@ -157,7 +163,7 @@ class Env(gym.Env):
         self.curr_pose = np.array(INITIAL_POSE)
         if VISUALIZE == True:
             self.camposevisualizer.publish_traj_campose(self.curr_pose)
-            self.move_to_waypoint(self.curr_pose)
+            success = self.move_to_waypoint(self.curr_pose)
 
 
         # 4 : SfS
@@ -193,10 +199,11 @@ class Env(gym.Env):
         self._get_curr_pose(action)
         if VISUALIZE == True:
             self.camposevisualizer.publish_traj_campose(self.curr_pose)
-            self.move_to_waypoint(self.curr_pose)
+            success = self.move_to_waypoint(self.curr_pose)
 
         # 3 : SfS
         self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
+        visualize_pcd(self.high_res_voxel_space.pointcloud)
 
         # 4 : set parameters
         self.curr_num_points = self.voxel_space.num_points
@@ -207,11 +214,10 @@ class Env(gym.Env):
 
         self.done = (self.curr_pos_distance <= self.goal_threshold)
         self.truncated = self.num_steps > self.max_steps
-        visualize_pcd(self.high_res_voxel_space.pointcloud)
 
         if VISUALIZE == True:
             if self.done == True or self.truncated == True:
-                self.move_to_waypoint(self.goal_pose)
+                success = self.move_to_waypoint(self.goal_pose)
                 self.sfs(self.curr_pose[:4],self.curr_pose[4:],self.num_steps)
                 visualize_pcd(self.high_res_voxel_space.pointcloud)
                 self.sim.execute_grasp(self.grasp,allow_contact=True)
@@ -265,14 +271,19 @@ class Env(gym.Env):
     
     def sfs(self,q,t,n):
         rgb_image, _, _ = self.sim.camera2.get_image(q,t)
-        seg_image = get_segimage(rgb_image,n,save_image=False)
+        path = f"{self.dir_path}/view{n}"
+        seg_image = get_segimage(rgb_image,path)
+
         self.voxel_space.sfs(seg_image,to_matrix(q, t))
         self.high_res_voxel_space.sfs(seg_image,to_matrix(q, t))
+
+        save_pcd(self.high_res_voxel_space.pointcloud,path)
 
     def move_to_waypoint(self,waypoint):
         T_task_waypoint = Transform.from_list(waypoint)
         T_base_waypoint = T_base_task * T_task_waypoint
-        self.ur5e_controller.goto_pose(T_base_waypoint)
+        success = self.ur5e_controller.goto_pose(T_base_waypoint)
+        return success
 
     def calc_reward(self):
         rw = (self.init_pos_distance - self.curr_pos_distance) / self.init_pos_distance + (self.init_quat_distance - self.curr_quat_distance) / self.init_quat_distance + ALPHA*(self.init_num_points - self.curr_num_points) / self.init_num_points
