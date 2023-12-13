@@ -4,6 +4,7 @@ import copy
 import os
 import numpy as np
 import gymnasium as gym
+import geometry_msgs.msg
 from gymnasium import spaces
 from stable_baselines3.common.env_checker import check_env
 from pathlib import Path
@@ -24,9 +25,10 @@ from ur5e_sim import UR5eCommander
 State = collections.namedtuple("State", ["tsdf", "pc"])
 
 # ENVIRONMENT PARAMS
-INITIAL_POSE = [-0.688191, -0.688191, -0.1624598, 0.1624598, 0.15, -0.15, 0.6]  # Top down view
+# INITIAL_POSE = [-0.688191, -0.688191, -0.1624598, 0.1624598, 0.15, -0.15, 0.6]  # Top down view
+INITIAL_POSE = [-0.9330127, 0.25, 0.0669873, 0.25, 0.15, -0.05, 0.6]  
 MAX_STEPS = 10
-GOAL_THRESHOLD = 0.06
+GOAL_THRESHOLD = 0.24
 ACTION_TRANS_SACLE = 0.05 # 5cm
 
 PREGRASP_X = 0.0
@@ -70,9 +72,16 @@ class Env(gym.Env):
             self.tf_tree.broadcast_static(T_base_task, "base_link", "task")
             rospy.sleep(1.0)
 
-            self.sim = ClutterRemovalSim(scene="packed", object_set="packed/test", gui=True, seed=42)
+            self.sim = ClutterRemovalSim(scene="packed", object_set="packed/test_transparent", gui=True, seed=42)
             self.camposevisualizer = CamposeVisualizer(MAX_STEPS)
             self.ur5e_controller = UR5eCommander()
+
+            # generate planning scene
+            table = geometry_msgs.msg.PoseStamped()
+            table.header.frame_id = "base_link"
+            table.pose = ros_utils.to_pose_msg(T_base_task)
+            table.pose.position.z -= 0.03
+            self.ur5e_controller.scene.add_box("table",table,size=(1.5, 1.5, 0.02))
 
         else:
             self.sim = ClutterRemovalSim(scene="packed", object_set="rl", gui=False)

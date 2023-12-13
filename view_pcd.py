@@ -13,6 +13,18 @@ def rotate_right_view(vis):
     ctr.rotate(-10.0, 0.0)
     return False
 
+def rotate_up_view(vis):
+    """Viewを右に回転する"""
+    ctr = vis.get_view_control()
+    ctr.rotate(0.0, 10.0)
+    return False
+
+def rotate_down_view(vis):
+    """Viewを右に回転する"""
+    ctr = vis.get_view_control()
+    ctr.rotate(0.0, -10.0)
+    return False
+
 def pan_up_view(vis):
     """カメラを上に向ける"""
     ctr = vis.get_view_control()
@@ -62,7 +74,7 @@ def translate_down_view(vis):
     return False
 
 if __name__ == "__main__":
-    path = "experiment/round5/view0.pcd"
+    path = "round1_2/view6.pcd"
     pcd = o3d.io.read_point_cloud(path)
 
     # set point cloud clor
@@ -78,6 +90,8 @@ if __name__ == "__main__":
     key_callback = {}
     key_callback[ord("F")] = rotate_left_view
     key_callback[ord("H")] = rotate_right_view
+    key_callback[ord("P")] = rotate_up_view
+    key_callback[ord("N")] = rotate_down_view
     key_callback[ord("T")] = pan_up_view
     key_callback[ord("G")] = pan_down_view
     key_callback[ord("Z")] = scale_up_view
@@ -88,6 +102,6 @@ if __name__ == "__main__":
     key_callback[ord("S")] = translate_down_view
 
 
-    # vis = o3d.visualization.draw_geometries_with_key_callbacks([pcd, bound],key_callback)
-    vis = o3d.visualization.draw_geometries_with_key_callbacks([pcd, bound], key_callback)
+    vis = o3d.visualization.draw_geometries_with_key_callbacks([pcd, bound],key_callback)
+    # vis = o3d.visualization.draw_geometries_with_key_callbacks([pcd, bound], key_callback)
     
